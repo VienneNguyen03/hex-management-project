@@ -22,8 +22,16 @@ build_property._RazorSourceGeneratorDebug =
 build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[/Users/minh.nguyenlevien/henry-project/HexManager/Pages/ForgotPassword.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvRm9yZ290UGFzc3dvcmQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [/Users/minh.nguyenlevien/henry-project/HexManager/Pages/Import.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXMvSW1wb3J0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/Pages/Login.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvTG9naW4ucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [/Users/minh.nguyenlevien/henry-project/HexManager/Pages/Signals/SignalForm.razor]
@@ -32,6 +40,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [/Users/minh.nguyenlevien/henry-project/HexManager/Pages/Signals/SignalList.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXMvU2lnbmFscy9TaWduYWxMaXN0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/Shared/AuthRedirect.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkL0F1dGhSZWRpcmVjdC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [/Users/minh.nguyenlevien/henry-project/HexManager/Shared/MainLayout.razor]

@@ -124,3 +124,12 @@
 /Users/minh.nguyenlevien/henry-project/HexManager/obj/Debug/net8.0/HexManager.pdb
 /Users/minh.nguyenlevien/henry-project/HexManager/obj/Debug/net8.0/HexManager.genruntimeconfig.cache
 /Users/minh.nguyenlevien/henry-project/HexManager/obj/Debug/net8.0/ref/HexManager.dll
+/Users/minh.nguyenlevien/henry-project/HexManager/obj/Debug/net8.0/HexManager.sourcelink.json
+/Users/minh.nguyenlevien/henry-project/HexManager/bin/Debug/net8.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll
+/Users/minh.nguyenlevien/henry-project/HexManager/bin/Debug/net8.0/Microsoft.Extensions.Diagnostics.Abstractions.dll
+/Users/minh.nguyenlevien/henry-project/HexManager/bin/Debug/net8.0/Microsoft.Extensions.Hosting.Abstractions.dll
+/Users/minh.nguyenlevien/henry-project/HexManager/bin/Debug/net8.0/Microsoft.Extensions.Logging.Abstractions.dll
+/Users/minh.nguyenlevien/henry-project/HexManager/bin/Debug/net8.0/Microsoft.Extensions.Options.dll
+/Users/minh.nguyenlevien/henry-project/HexManager/bin/Debug/net8.0/System.Security.Cryptography.Pkcs.dll
+/Users/minh.nguyenlevien/henry-project/HexManager/bin/Debug/net8.0/System.Security.Cryptography.Xml.dll
+/Users/minh.nguyenlevien/henry-project/HexManager/bin/Debug/net8.0/runtimes/win/lib/net8.0/System.Security.Cryptography.Pkcs.dll

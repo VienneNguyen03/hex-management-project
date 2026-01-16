@@ -1,0 +1,231 @@
+@page "/login"
+@using HexManager.Services
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Login - Hex Manager</PageTitle>
+
+<div class="login-container">
+    <div class="login-content">
+        <img src="/logo_hex.png" alt="Hex Manager" class="login-logo" />
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">
+                @errorMessage
+            </div>
+        }
+
+        <EditForm Model="loginModel" OnValidSubmit="HandleLogin" class="login-form">
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <InputText @bind-Value="loginModel.Username" class="form-input" placeholder="Enter username" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <InputText @bind-Value="loginModel.Password" type="password" class="form-input" placeholder="Enter password" />
+            </div>
+
+            <button type="submit" class="btn-login" disabled="@loggingIn">
+                @if (loggingIn)
+                {
+                    <span class="spinner-small"></span>
+                    <span>Logging in...</span>
+                }
+                else
+                {
+                    <span>Sign In</span>
+                }
+            </button>
+        </EditForm>
+
+        <div class="login-footer">
+            <a href="/forgot-password" class="forgot-password-link">Forgot Password?</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private bool loggingIn = false;
+    private string? errorMessage;
+
+    private async Task HandleLogin()
+    {
+        errorMessage = null;
+        loggingIn = true;
+        StateHasChanged();
+
+        try
+        {
+            var success = await AuthService.LoginAsync(loginModel.Username, loginModel.Password);
+            
+            if (success)
+            {
+                // Set cookie via JavaScript as fallback
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("eval", 
+                        $"document.cookie = 'HexManager.Auth=authenticated; path=/; max-age=28800; SameSite=Lax'");
+                }
+                catch { }
+                
+                // Small delay to ensure cookie is set
+                await Task.Delay(200);
+                
+                // Redirect to home page with force reload
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = "Invalid username or password";
+                loggingIn = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Login failed: {ex.Message}";
+            loggingIn = false;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private class LoginModel
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .login-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: white;
+        padding: 2rem;
+    }
+
+    .login-content {
+        width: 100%;
+        max-width: 400px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .login-logo {
+        height: 120px;
+        width: auto;
+        margin-bottom: 2rem;
+    }
+
+    .login-form {
+        width: 100%;
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #333;
+        font-size: 0.9rem;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        transition: border-color 0.2s;
+        background: white;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #714B67;
+    }
+
+    .btn-login {
+        width: 100%;
+        padding: 0.875rem;
+        background: #714B67;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .btn-login:hover:not(:disabled) {
+        background: #5a3a52;
+    }
+
+    .btn-login:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .login-footer {
+        margin-top: 1.5rem;
+        text-align: center;
+    }
+
+    .forgot-password-link {
+        color: #714B67;
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: color 0.2s;
+    }
+
+    .forgot-password-link:hover {
+        color: #5a3a52;
+        text-decoration: underline;
+    }
+
+    .alert {
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+        width: 100%;
+    }
+
+    .alert-danger {
+        background: #fee;
+        border: 1px solid #fcc;
+        color: #c33;
+    }
+
+    .spinner-small {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>

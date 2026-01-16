@@ -1,6 +1,6 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
+<Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <RouteView RouteData="@routeData" DefaultLayout="@GetLayout(routeData)" />
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
     <NotFound>
@@ -10,3 +10,12 @@
         </LayoutView>
     </NotFound>
 </Router>
+
+@code {
+    private Type? GetLayout(RouteData routeData)
+    {
+        var path = routeData.PageType?.FullName ?? "";
+        var isAuthPage = path.Contains("Login") || path.Contains("ForgotPassword");
+        return isAuthPage ? null : typeof(MainLayout);
+    }
+}

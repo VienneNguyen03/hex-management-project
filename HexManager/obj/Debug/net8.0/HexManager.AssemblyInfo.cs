@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("HexManager")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bb14ea497cb2c7861914b36ffa494371f8891234")]
 [assembly: System.Reflection.AssemblyProductAttribute("HexManager")]
 [assembly: System.Reflection.AssemblyTitleAttribute("HexManager")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

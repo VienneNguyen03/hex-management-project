@@ -20,6 +20,26 @@
         </div>
     }
 
+    <!-- Full Screen Loading Overlay -->
+    @if (importing)
+    {
+        <div class="fullscreen-loading-overlay">
+            <div class="fullscreen-spinner-container">
+                <div class="fullscreen-spinner"></div>
+                <p class="loading-text">Importing data...</p>
+                @if (importProgress > 0)
+                {
+                    <div class="loading-progress">
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" style="width: @importProgress%"></div>
+                        </div>
+                        <div class="loading-progress-text">@importProgress%</div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
     <div class="import-content">
         <div class="import-grid">
             <!-- Upload CSV File Section -->
@@ -219,17 +239,19 @@ ASTC 12,0F96,...</pre>
             File.Delete(tempPath);
             
             successMessage = $"Successfully imported {importedCount} traffic signals";
+            StateHasChanged();
+            
+            // Wait a bit to show success message, then navigate to Traffic Signals
+            await Task.Delay(1500);
+            Navigation.NavigateTo("/");
         }
         catch (Exception ex)
         {
             errorMessage = $"Import failed: {ex.Message}";
-        }
-        finally
-        {
             importing = false;
             importingFilePath = null;
             importProgress = 0;
-            StateHasChanged(); // Force UI update after import completes
+            StateHasChanged();
         }
     }
 
@@ -247,6 +269,9 @@ ASTC 12,0F96,...</pre>
             if (!File.Exists(filePath))
             {
                 errorMessage = "File not found";
+                importing = false;
+                importingFilePath = null;
+                StateHasChanged();
                 return;
             }
 
@@ -255,17 +280,18 @@ ASTC 12,0F96,...</pre>
             importProgress = 100;
             
             successMessage = $"Successfully imported {importedCount} traffic signals";
+            StateHasChanged();
+            
+            await Task.Delay(1500);
+            Navigation.NavigateTo("/");
         }
         catch (Exception ex)
         {
             errorMessage = $"Import failed: {ex.Message}";
-        }
-        finally
-        {
             importing = false;
             importingFilePath = null;
             importProgress = 0;
-            StateHasChanged(); // Force UI update after import completes
+            StateHasChanged();
         }
     }
 
@@ -556,11 +582,16 @@ ASTC 12,0F96,...</pre>
         animation: spin 0.8s linear infinite;
         flex-shrink: 0;
         vertical-align: middle;
+        margin-right: 0.5rem;
     }
     
     .btn-import-file:disabled .spinner-small {
         border: 2px solid rgba(113, 75, 103, 0.3);
         border-top-color: #714B67;
+    }
+    
+    .btn-import-file:disabled {
+        opacity: 1 !important;
     }
 
     @@keyframes spin {
@@ -714,6 +745,72 @@ ASTC 12,0F96,...</pre>
     .btn-import-file:disabled {
         opacity: 0.6;
         cursor: not-allowed;
+    }
+
+    /* Full Screen Loading Overlay */
+    .fullscreen-loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fullscreen-spinner-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .fullscreen-spinner {
+        width: 60px;
+        height: 60px;
+        border: 5px solid rgba(113, 75, 103, 0.2);
+        border-top-color: #714B67;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #714B67;
+        margin: 0;
+    }
+
+    .loading-progress {
+        width: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .loading-progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .loading-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #714B67 0%, #8B5A8D 100%);
+        transition: width 0.3s ease;
+    }
+
+    .loading-progress-text {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #714B67;
     }
 
     @@media (max-width: 1024px) {

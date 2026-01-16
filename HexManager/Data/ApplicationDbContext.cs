@@ -11,6 +11,7 @@ public class ApplicationDbContext : DbContext
     }
 
     public DbSet<TrafficSignal> TrafficSignals { get; set; } = null!;
+    public DbSet<User> Users { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +32,13 @@ public class ApplicationDbContext : DbContext
             
             entity.HasIndex(e => new { e.StreetName1, e.StreetName2 })
                   .HasDatabaseName("IX_TrafficSignals_Streets");
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.HasIndex(e => e.Email).IsUnique();
         });
     }
 }
