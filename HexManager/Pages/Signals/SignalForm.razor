@@ -1,0 +1,1117 @@
+@page "/signals/create"
+@page "/signals/edit/{Id:int}"
+@using HexManager.Models
+@using HexManager.Services
+@inject ITrafficSignalService SignalService
+@inject IHexGeneratorService HexGenerator
+@inject NavigationManager Navigation
+
+<PageTitle>@(Id > 0 ? "Edit" : "Create") Traffic Signal</PageTitle>
+
+<div class="odoo-form-view">
+    <!-- Form Header with Actions -->
+    <div class="form-header">
+        <h1 class="form-title">@(Id > 0 ? "Edit" : "Create") Traffic Signal</h1>
+        <div class="form-actions">
+            <button type="button" class="btn-save" @onclick="HandleSubmit" disabled="@saving">
+                @if (saving)
+                {
+                    <span class="spinner"></span>
+                }
+                Save
+            </button>
+            <a href="/" class="btn-cancel">Discard</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success">
+            @successMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+
+    <EditForm Model="signal" class="odoo-form" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        
+        <!-- HEX Address Section -->
+        <div class="form-section">
+            <h2 class="section-title">HEX Address Information</h2>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label required">HEX Address</label>
+                    <div class="input-with-button">
+                        <InputText @bind-Value="signal.HexAddress" 
+                                   class="@GetHexInputClass()" 
+                                   placeholder="Enter 4-character HEX (e.g., 7001)" 
+                                   maxlength="4"
+                                   @oninput="OnHexAddressInput" />
+                        @if (Id == 0)
+                        {
+                            <button type="button" class="btn-generate" @onclick="GenerateHex">
+                                Auto Generate
+                            </button>
+                        }
+                    </div>
+                    <small class="form-help">Must be 4 hexadecimal characters (0-9, A-F)</small>
+                    <ValidationMessage For="@(() => signal.HexAddress)" class="field-error" />
+                    @if (hexExists)
+                    {
+                        <div class="field-error">This HEX address already exists!</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Information Section -->
+        <div class="form-section">
+            <h2 class="section-title">Basic Information</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">Police Code</label>
+                    <InputText @bind-Value="signal.PoliceCode" class="form-input" placeholder="Enter police code" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label required">Borough</label>
+                    <InputSelect @bind-Value="signal.Boro" class="form-select">
+                        <option value="">Select Borough</option>
+                        <option value="1">Manhattan</option>
+                        <option value="2">Bronx</option>
+                        <option value="3">Brooklyn</option>
+                        <option value="4">Queens</option>
+                        <option value="5">Staten Island</option>
+                    </InputSelect>
+                    <ValidationMessage For="@(() => signal.Boro)" class="field-error" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Key BIP</label>
+                    <InputText @bind-Value="signal.KeyBIP" class="form-input" placeholder="Enter key BIP" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Node ID</label>
+                    <InputText @bind-Value="signal.NodeId" class="form-input" placeholder="Enter node ID" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Segment ID</label>
+                    <InputText @bind-Value="signal.SegmentId" class="form-input" placeholder="Enter segment ID" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">UID</label>
+                    <InputText @bind-Value="signal.UID" class="form-input" placeholder="Enter UID" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Administrative Information Section -->
+        <div class="form-section">
+            <h2 class="section-title">Administrative Information</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">Sequence Number</label>
+                    <InputText @bind-Value="signal.SequenceNumber" class="form-input" placeholder="Enter sequence number" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Area Number</label>
+                    <InputText @bind-Value="signal.AreaNumber" class="form-input" placeholder="Enter area number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Machine Number</label>
+                    <InputText @bind-Value="signal.MachineNumber" class="form-input" placeholder="Enter machine number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Section</label>
+                    <InputText @bind-Value="signal.Section" class="form-input" placeholder="Enter section" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Logical Number</label>
+                    <InputText @bind-Value="signal.LogicalNumber" class="form-input" placeholder="Enter logical number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">GeoKey1</label>
+                    <InputText @bind-Value="signal.GeoKey1" class="form-input" placeholder="Enter GeoKey1" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">GeoKey Street 1</label>
+                    <InputText @bind-Value="signal.GeoKeyStreet1" class="form-input" placeholder="Enter GeoKey Street 1" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">GeoKey Street 2</label>
+                    <InputText @bind-Value="signal.GeoKeyStreet2" class="form-input" placeholder="Enter GeoKey Street 2" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">On Line</label>
+                    <InputText @bind-Value="signal.OnLine" class="form-input" placeholder="Enter on line" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Street Information Section -->
+        <div class="form-section">
+            <h2 class="section-title">Street Information</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label required">Street Name 1</label>
+                    <InputText @bind-Value="signal.StreetName1" class="form-input" placeholder="Enter primary street name" />
+                    <ValidationMessage For="@(() => signal.StreetName1)" class="field-error" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Street Code 1</label>
+                    <InputText @bind-Value="signal.StreetCode1" class="form-input" placeholder="Enter street code" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Street Name 2</label>
+                    <InputText @bind-Value="signal.StreetName2" class="form-input" placeholder="Enter secondary street name" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Street Code 2</label>
+                    <InputText @bind-Value="signal.StreetCode2" class="form-input" placeholder="Enter street code" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Street Name 3</label>
+                    <InputText @bind-Value="signal.StreetName3" class="form-input" placeholder="Enter street name" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Street Code 3</label>
+                    <InputText @bind-Value="signal.StreetCode3" class="form-input" placeholder="Enter street code" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Street Name 4</label>
+                    <InputText @bind-Value="signal.StreetName4" class="form-input" placeholder="Enter street name" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Street Code 4</label>
+                    <InputText @bind-Value="signal.StreetCode4" class="form-input" placeholder="Enter street code" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Controller Information Section -->
+        <div class="form-section">
+            <h2 class="section-title">Controller Information</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">Controller Type</label>
+                    <InputText @bind-Value="signal.ControllerType" class="form-input" placeholder="Enter controller type" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Controller Number</label>
+                    <InputText @bind-Value="signal.ControllerNumber" class="form-input" placeholder="Enter controller number" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Controller Serial Number</label>
+                    <InputText @bind-Value="signal.ControllerSerialNumber" class="form-input" placeholder="Enter serial number" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Equipment Type</label>
+                    <InputText @bind-Value="signal.EquipmentType" class="form-input" placeholder="Enter equipment type" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Signal Type</label>
+                    <InputText @bind-Value="signal.SignalType" class="form-input" placeholder="Enter signal type" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Pole Type</label>
+                    <InputText @bind-Value="signal.PoleType" class="form-input" placeholder="Enter pole type" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Controller Loop Type</label>
+                    <InputText @bind-Value="signal.ControllerLoopType" class="form-input" placeholder="Enter loop type" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Controller Loop Number</label>
+                    <InputText @bind-Value="signal.ControllerLoopNumber" class="form-input" placeholder="Enter loop number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Loop Qty</label>
+                    <InputText @bind-Value="signal.LoopQty" class="form-input" placeholder="Enter loop quantity" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Controller Dial No</label>
+                    <InputText @bind-Value="signal.ControllerDialNo" class="form-input" placeholder="Enter dial number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Auxiliary Cabinets No</label>
+                    <InputText @bind-Value="signal.AuxiliaryCabinetsNo" class="form-input" placeholder="Enter auxiliary cabinets number" />
+                </div>
+            </div>
+        </div>
+
+        <!-- MOXA Information Section -->
+        <div class="form-section">
+            <h2 class="section-title">MOXA Information</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">MOXA IMEI</label>
+                    <InputText @bind-Value="signal.MoxaIMEI" class="form-input" placeholder="Enter MOXA IMEI" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">MOXA CMWN</label>
+                    <InputText @bind-Value="signal.MoxaCMWN" class="form-input" placeholder="Enter MOXA CMWN" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Computer Flag</label>
+                    <InputText @bind-Value="signal.ComputerFlag" class="form-input" placeholder="Enter computer flag" />
+                </div>
+            </div>
+        </div>
+
+        <!-- ATCS Serial Numbers Section -->
+        <div class="form-section">
+            <h2 class="section-title">ATCS Serial Numbers</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">Cabinet Serial Number</label>
+                    <InputText @bind-Value="signal.AtcsCurrentCabSerialNum" class="form-input" placeholder="Enter cabinet serial number" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">BIU Serial Number</label>
+                    <InputText @bind-Value="signal.AtcsCurrentBiuSerialNum" class="form-input" placeholder="Enter BIU serial number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">CM Serial Number</label>
+                    <InputText @bind-Value="signal.AtcsCurrentCmSerialNum" class="form-input" placeholder="Enter CM serial number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">CPU Serial Number</label>
+                    <InputText @bind-Value="signal.AtcsCurrentCpuSerialNum" class="form-input" placeholder="Enter CPU serial number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">PDA Serial Number</label>
+                    <InputText @bind-Value="signal.AtcsCurrentPdaSerialNum" class="form-input" placeholder="Enter PDA serial number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">DCI Serial Number</label>
+                    <InputText @bind-Value="signal.AtcsCurrentDciSerialNum" class="form-input" placeholder="Enter DCI serial number" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Geographic Information Section -->
+        <div class="form-section">
+            <h2 class="section-title">Geographic Information</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">Latitude</label>
+                    <InputNumber @bind-Value="signal.Latitude" class="form-input" placeholder="Enter latitude" />
+                    <ValidationMessage For="@(() => signal.Latitude)" class="field-error" />
+                    <small class="form-help">Must be between -90 and 90</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Longitude</label>
+                    <InputNumber @bind-Value="signal.Longitude" class="form-input" placeholder="Enter longitude" />
+                    <ValidationMessage For="@(() => signal.Longitude)" class="field-error" />
+                    <small class="form-help">Must be between -180 and 180</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Mapping X Coordinates</label>
+                    <InputNumber @bind-Value="signal.MappingX" class="form-input" placeholder="Enter X coordinate" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Mapping Y Coordinates</label>
+                    <InputNumber @bind-Value="signal.MappingY" class="form-input" placeholder="Enter Y coordinate" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Dates - Painting Section -->
+        <div class="form-section">
+            <h2 class="section-title">Painting Maintenance</h2>
+            <div class="form-grid three-columns">
+                <div class="form-group">
+                    <label class="form-label">Painting Due Date</label>
+                    <InputDate @bind-Value="signal.PaintingDueDate" class="form-input" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Painting Scheduled Date</label>
+                    <InputDate @bind-Value="signal.PaintingScheduledDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Painting Completed Date</label>
+                    <InputDate @bind-Value="signal.PaintingCompletedDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Paint Start Date</label>
+                    <InputDate @bind-Value="signal.PaintStartDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Painting Rods</label>
+                    <InputText @bind-Value="signal.PaintingRods" class="form-input" placeholder="Enter painting rods" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Painting Hardware</label>
+                    <InputText @bind-Value="signal.PaintingHardware" class="form-input" placeholder="Enter painting hardware" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Dates - Relamping Section -->
+        <div class="form-section">
+            <h2 class="section-title">Relamping Maintenance</h2>
+            <div class="form-grid three-columns">
+                <div class="form-group">
+                    <label class="form-label">Relamping Due Date</label>
+                    <InputDate @bind-Value="signal.RelampingDueDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Relamping Scheduled Date</label>
+                    <InputDate @bind-Value="signal.RelampingScheduledDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Relamping Completed Date</label>
+                    <InputDate @bind-Value="signal.RelampingCompletedDate" class="form-input" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Dates - Controller Section -->
+        <div class="form-section">
+            <h2 class="section-title">Controller Maintenance</h2>
+            <div class="form-grid three-columns">
+                <div class="form-group">
+                    <label class="form-label">Controller Due Date</label>
+                    <InputDate @bind-Value="signal.ControllerDueDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Controller Scheduled Date</label>
+                    <InputDate @bind-Value="signal.ControllerScheduledDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Controller Completed Date</label>
+                    <InputDate @bind-Value="signal.ControllerCompletedDate" class="form-input" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Dates - Stray Voltage Section -->
+        <div class="form-section">
+            <h2 class="section-title">Stray Voltage Check</h2>
+            <div class="form-grid three-columns">
+                <div class="form-group">
+                    <label class="form-label">Stray Voltage Check Due Date</label>
+                    <InputDate @bind-Value="signal.StrayVoltageCheckDueDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Stray Voltage Check Scheduled Date</label>
+                    <InputDate @bind-Value="signal.StrayVoltageCheckScheduledDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Stray Voltage Check Completed Date</label>
+                    <InputDate @bind-Value="signal.StrayVoltageCheckCompletedDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Stray Voltage Work Order #</label>
+                    <InputText @bind-Value="signal.StrayVoltageOpenWorkOrder" class="form-input" placeholder="Enter work order number" />
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Stray Voltage Inspection Comments</label>
+                    <InputTextArea @bind-Value="signal.StrayVoltageInspectionComments" class="form-input" placeholder="Enter inspection comments" rows="3" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Installation and Other Dates Section -->
+        <div class="form-section">
+            <h2 class="section-title">Installation Dates</h2>
+            <div class="form-grid three-columns">
+                <div class="form-group">
+                    <label class="form-label">Signal Install Date</label>
+                    <InputDate @bind-Value="signal.SignalInstallDate" class="form-input" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Employee Tracking Section -->
+        <div class="form-section">
+            <h2 class="section-title">Employee Tracking</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">Controller Cleaning Employee</label>
+                    <InputText @bind-Value="signal.ControllerCleaningEmployee" class="form-input" placeholder="Enter employee name" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Painting Employee</label>
+                    <InputText @bind-Value="signal.PaintingEmployee" class="form-input" placeholder="Enter employee name" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Painting Start Employee</label>
+                    <InputText @bind-Value="signal.PaintingStartEmployee" class="form-input" placeholder="Enter employee name" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Lamping Employee</label>
+                    <InputText @bind-Value="signal.LampingEmployee" class="form-input" placeholder="Enter employee name" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Work Order Information Section -->
+        <div class="form-section">
+            <h2 class="section-title">Work Order & Contract Information</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">TSMP Intersection Control Number</label>
+                    <InputText @bind-Value="signal.TsmpIntersectionControlNumber" class="form-input" placeholder="Enter control number" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Contractor Reference Number</label>
+                    <InputText @bind-Value="signal.ContractorReferenceNumber" class="form-input" placeholder="Enter contractor reference" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Equipment and Poles Section -->
+        <div class="form-section">
+            <h2 class="section-title">Poles & Equipment</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">M2 Poles</label>
+                    <InputText @bind-Value="signal.M2Poles" class="form-input" placeholder="Enter M2 poles count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">S1 Poles</label>
+                    <InputText @bind-Value="signal.S1Poles" class="form-input" placeholder="Enter S1 poles count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cylinders</label>
+                    <InputText @bind-Value="signal.Cylinders" class="form-input" placeholder="Enter cylinders" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Coastal Foundations</label>
+                    <InputText @bind-Value="signal.CoastalFoundations" class="form-input" placeholder="Enter coastal foundations" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Lamps Section -->
+        <div class="form-section">
+            <h2 class="section-title">Lamps Inventory</h2>
+            <div class="form-grid three-columns">
+                <div class="form-group">
+                    <label class="form-label">L67 Lamps</label>
+                    <InputText @bind-Value="signal.L67Lamps" class="form-input" placeholder="Count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">L150 Lamps</label>
+                    <InputText @bind-Value="signal.L150Lamps" class="form-input" placeholder="Count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">L68 Lamps</label>
+                    <InputText @bind-Value="signal.L68Lamps" class="form-input" placeholder="Count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">L116 Lamps</label>
+                    <InputText @bind-Value="signal.L116Lamps" class="form-input" placeholder="Count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">D5 LED Lamps</label>
+                    <InputText @bind-Value="signal.D5LedLamps" class="form-input" placeholder="Count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">D14 LED Lamps</label>
+                    <InputText @bind-Value="signal.D14LedLamps" class="form-input" placeholder="Count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">D7 8 IN LED Lamps</label>
+                    <InputText @bind-Value="signal.D78InLedLamps" class="form-input" placeholder="Count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">D7 12 IN LED Lamps</label>
+                    <InputText @bind-Value="signal.D712InLedLamps" class="form-input" placeholder="Count" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Pedestrian Signals Section -->
+        <div class="form-section">
+            <h2 class="section-title">Pedestrian Signals</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">LED Peds</label>
+                    <InputText @bind-Value="signal.LedPeds" class="form-input" placeholder="Enter LED peds count" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Countdown Peds</label>
+                    <InputText @bind-Value="signal.CountdownPeds" class="form-input" placeholder="Enter countdown peds count" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Red Light Camera Section -->
+        <div class="form-section">
+            <h2 class="section-title">Red Light Camera</h2>
+            <div class="form-grid three-columns">
+                <div class="form-group">
+                    <label class="form-label">Camera Type</label>
+                    <InputText @bind-Value="signal.RedlightCameraType" class="form-input" placeholder="Enter camera type" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Camera Install Date</label>
+                    <InputDate @bind-Value="signal.RedlightCameraInstallDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Camera Remove Date</label>
+                    <InputDate @bind-Value="signal.RedlightCameraRemoveDate" class="form-input" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Battery Backup System Section -->
+        <div class="form-section">
+            <h2 class="section-title">Battery Backup System (BBS)</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">Battery Backup Model</label>
+                    <InputText @bind-Value="signal.BatteryBackupModel" class="form-input" placeholder="Enter battery model" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Battery Last Changed</label>
+                    <InputDate @bind-Value="signal.BatteryLastChanged" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">BBS Make</label>
+                    <InputText @bind-Value="signal.BbsMake" class="form-input" placeholder="Enter BBS make" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">BBS Model</label>
+                    <InputText @bind-Value="signal.BbsModel" class="form-input" placeholder="Enter BBS model" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">BBS Next Change Date</label>
+                    <InputDate @bind-Value="signal.BbsNextChangeDate" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">BBS Schedule Group</label>
+                    <InputText @bind-Value="signal.BbsScheduleGroup" class="form-input" placeholder="Enter schedule group" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">BBS Change Scheduled Date</label>
+                    <InputDate @bind-Value="signal.BbsChangeScheduledDate" class="form-input" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Problem and Remarks Section -->
+        <div class="form-section">
+            <h2 class="section-title">Problem & Remarks</h2>
+            <div class="form-grid two-columns">
+                <div class="form-group">
+                    <label class="form-label">Problem Code</label>
+                    <InputText @bind-Value="signal.ProblemCode" class="form-input" placeholder="Enter problem code" />
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Remarks</label>
+                    <InputTextArea @bind-Value="signal.Remarks" class="form-input" placeholder="Enter remarks" rows="4" />
+                </div>
+            </div>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private TrafficSignal signal = new();
+    private bool saving = false;
+    private bool hexExists = false;
+    private string? successMessage;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id > 0)
+        {
+            var existing = await SignalService.GetByIdAsync(Id);
+            if (existing != null)
+            {
+                signal = existing;
+            }
+            else
+            {
+                Navigation.NavigateTo("/");
+            }
+        }
+    }
+
+    private async Task GenerateHex()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+            signal.HexAddress = await HexGenerator.GenerateNextHexAddressAsync();
+            hexExists = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error generating HEX: {ex.Message}";
+        }
+    }
+
+    private string GetHexInputClass()
+    {
+        return hexExists ? "form-input hex-input input-error" : "form-input hex-input";
+    }
+
+    private void OnHexAddressInput(ChangeEventArgs e)
+    {
+        hexExists = false;
+        errorMessage = null;
+        successMessage = null;
+        if (e.Value != null)
+        {
+            signal.HexAddress = e.Value.ToString()?.ToUpper() ?? "";
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Reset messages
+        errorMessage = null;
+        successMessage = null;
+        hexExists = false;
+        
+        // Trim and uppercase HEX address
+        if (!string.IsNullOrWhiteSpace(signal.HexAddress))
+        {
+            signal.HexAddress = signal.HexAddress.ToUpper().Trim();
+        }
+
+        // Basic client-side validation
+        if (string.IsNullOrWhiteSpace(signal.HexAddress))
+        {
+            errorMessage = "HEX Address is required";
+            return;
+        }
+
+        if (!HexGenerator.IsValidHexAddress(signal.HexAddress))
+        {
+            errorMessage = "Invalid HEX address format. Must be 4 hexadecimal characters (0-9, A-F)";
+            hexExists = true;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(signal.Boro))
+        {
+            errorMessage = "Borough is required";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(signal.StreetName1))
+        {
+            errorMessage = "Street Name 1 is required";
+            return;
+        }
+
+        if (signal.StreetName1.Length < 2)
+        {
+            errorMessage = "Street Name 1 must be at least 2 characters";
+            return;
+        }
+
+        // Validate coordinates
+        if (signal.Latitude.HasValue && (signal.Latitude.Value < -90 || signal.Latitude.Value > 90))
+        {
+            errorMessage = "Latitude must be between -90 and 90";
+            return;
+        }
+
+        if (signal.Longitude.HasValue && (signal.Longitude.Value < -180 || signal.Longitude.Value > 180))
+        {
+            errorMessage = "Longitude must be between -180 and 180";
+            return;
+        }
+
+        saving = true;
+
+        try
+        {
+            if (Id > 0)
+            {
+                await SignalService.UpdateAsync(signal);
+                successMessage = "Signal updated successfully";
+            }
+            else
+            {
+                await SignalService.CreateAsync(signal);
+                successMessage = "Signal created successfully";
+            }
+            
+            await Task.Delay(1500);
+            Navigation.NavigateTo("/");
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+            hexExists = ex.Message.Contains("already exists");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}
+
+<style>
+    .odoo-form-view {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 2rem;
+        background: white;
+        border-bottom: 2px solid #e0e0e0;
+    }
+
+    .form-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .btn-save {
+        background: #714B67;
+        color: white;
+        border: none;
+        padding: 0.5rem 1.25rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .btn-save:hover:not(:disabled) {
+        background: #5a3a52;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .btn-save:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-cancel {
+        background: white;
+        color: #666;
+        border: 1px solid #ddd;
+        padding: 0.5rem 1.25rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.85rem;
+    }
+
+    .btn-cancel:hover {
+        background: #f8f9fa;
+        border-color: #714B67;
+        color: #714B67;
+    }
+
+    .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .odoo-form {
+        padding: 2rem;
+        width: 100%;
+    }
+
+    .form-section {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .form-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+
+    .section-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #714B67;
+        margin: 0 0 1.25rem 0;
+        padding-bottom: 0.4rem;
+        border-bottom: 2px solid #f0e6ed;
+    }
+
+    .form-grid {
+        display: grid;
+        gap: 1.5rem;
+    }
+
+    .form-grid.two-columns {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .form-grid.three-columns {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-label {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #555;
+        margin-bottom: 0.4rem;
+        display: block;
+    }
+
+    .form-label.required::after {
+        content: " *";
+        color: #dc3545;
+    }
+
+    .form-input, .form-select {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #d0d0d0;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+        background: white;
+    }
+
+    .form-input:focus, .form-select:focus {
+        outline: none;
+        border-color: #714B67;
+        box-shadow: 0 0 0 3px rgba(113, 75, 103, 0.1);
+    }
+
+    .form-input::placeholder {
+        color: #999;
+    }
+
+    .hex-input {
+        text-transform: uppercase;
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .input-with-button {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .input-with-button .form-input {
+        flex: 1;
+    }
+
+    .btn-generate {
+        background: #f8f9fa;
+        border: 1px solid #d0d0d0;
+        color: #555;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+        font-size: 0.85rem;
+    }
+
+    .btn-generate:hover {
+        background: #714B67;
+        color: white;
+        border-color: #714B67;
+    }
+
+    .form-help {
+        display: block;
+        margin-top: 0.3rem;
+        color: #666;
+        font-size: 0.75rem;
+    }
+
+    .field-error {
+        margin-top: 0.3rem;
+        color: #dc3545;
+        font-size: 0.75rem;
+        font-weight: 500;
+        display: block;
+    }
+
+    .input-error {
+        border-color: #dc3545 !important;
+        background-color: #fff5f5 !important;
+    }
+
+    .input-error:focus {
+        box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+    }
+
+    .alert {
+        padding: 1rem 1.5rem;
+        margin: 1rem 2rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-danger {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    /* Responsive */
+    @@media (max-width: 1024px) {
+        .form-grid.two-columns,
+        .form-grid.three-columns {
+            grid-template-columns: 1fr;
+        }
+
+        .odoo-form {
+            padding: 1.5rem;
+        }
+
+        .form-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+        }
+
+        .form-actions {
+            justify-content: stretch;
+        }
+
+        .btn-save, .btn-cancel {
+            flex: 1;
+            justify-content: center;
+        }
+    }
+</style>

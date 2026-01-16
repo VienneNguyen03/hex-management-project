@@ -1,0 +1,182 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+
+<PageTitle>HEX Manager</PageTitle>
+
+<div class="odoo-layout">
+    <!-- Top Header with Menu -->
+    <header class="odoo-header">
+        <div class="odoo-header-left">
+            <a href="/" class="odoo-logo">
+                <img src="/logo_hex.png" alt="HEX Manager" class="logo-image" />
+            </a>
+            
+            <nav class="odoo-nav">
+                <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+                    Traffic Signals
+                </NavLink>
+                <NavLink class="nav-item" href="signals/create">
+                    Create New
+                </NavLink>
+                <NavLink class="nav-item" href="import">
+                    Import CSV
+                </NavLink>
+            </nav>
+        </div>
+        
+        <div class="odoo-header-right">
+            <span class="user-info">Admin</span>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="odoo-main">
+        <div class="odoo-content">
+            @Body
+        </div>
+    </main>
+</div>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    .odoo-layout {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background: #f0f0f0;
+    }
+
+    /* Header Styles - Odoo Purple Theme */
+    .odoo-header {
+        background: linear-gradient(135deg, #714B67 0%, #8B5A8D 100%);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 1rem;
+        height: 42px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    .odoo-header-left {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    .odoo-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        color: white;
+        font-weight: 600;
+        font-size: 0.95rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .odoo-logo:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .logo-image {
+        height: 90px;
+        width: auto;
+        filter: brightness(0) invert(1);
+        transition: all 0.2s;
+    }
+
+    .odoo-logo:hover .logo-image {
+        transform: scale(1.05);
+    }
+
+    .odoo-nav {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .odoo-nav .nav-item {
+        display: flex;
+        align-items: center;
+        padding: 0.375rem 0.875rem;
+        color: rgba(255,255,255,0.9);
+        text-decoration: none;
+        border-radius: 4px;
+        transition: all 0.2s;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .odoo-nav .nav-item:hover {
+        background: rgba(255,255,255,0.15);
+        color: white;
+    }
+
+    .odoo-nav .nav-item.active {
+        background: rgba(255,255,255,0.25);
+        color: white;
+        font-weight: 500;
+    }
+
+    .odoo-header-right {
+        display: flex;
+        align-items: center;
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        padding: 0.375rem 0.875rem;
+        background: rgba(255,255,255,0.1);
+        border-radius: 16px;
+        font-size: 0.8rem;
+    }
+
+    /* Main Content */
+    .odoo-main {
+        flex: 1;
+        overflow-y: auto;
+        background: #f0f0f0;
+    }
+
+    .odoo-content {
+        width: 100%;
+        padding: 1.5rem;
+    }
+
+    /* Responsive */
+    @@media (max-width: 1024px) {
+        .odoo-header-left {
+            gap: 1rem;
+        }
+        
+        .odoo-nav .nav-item {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.9rem;
+        }
+        
+        .logo-image {
+            height: 68px;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .odoo-nav {
+            display: none;
+        }
+        
+        .odoo-content {
+            padding: 1rem;
+        }
+    }
+</style>

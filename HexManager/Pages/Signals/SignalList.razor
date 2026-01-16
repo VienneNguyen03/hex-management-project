@@ -1,0 +1,975 @@
+@page "/"
+@page "/signals"
+@using HexManager.Models
+@using HexManager.Services
+@inject ITrafficSignalService SignalService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+
+<PageTitle>Traffic Signals</PageTitle>
+
+<div class="odoo-view">
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success">
+            @successMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    <!-- Header with Actions -->
+    <div class="odoo-view-header">
+        <div class="view-header-left">
+            <h1 class="view-title">Traffic Signals</h1>
+            @if (pagedResult != null)
+            {
+                <span class="record-count">@pagedResult.TotalCount records</span>
+            }
+        </div>
+        <div class="view-header-right">
+            @if (selectedIds.Any())
+            {
+                <button class="btn-danger" @onclick="DeleteSelected">
+                    Delete (@selectedIds.Count)
+                </button>
+            }
+            <a href="/signals/create" class="btn-primary">
+                Create New
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="odoo-filters">
+        <div class="filter-group">
+            <div class="filter-item">
+                <label>Search</label>
+                <input type="text" 
+                       class="filter-input" 
+                       placeholder="HEX, Police Code, Street..." 
+                       @bind="filterOptions.SearchTerm"
+                       @bind:event="oninput"
+                       @onkeyup="OnSearchChanged" />
+            </div>
+
+            <div class="filter-item">
+                <label>Borough</label>
+                <select class="filter-select" @bind="filterOptions.Boro" @bind:after="ApplyFilters">
+                    <option value="">All Boroughs</option>
+                    <option value="1">Manhattan</option>
+                    <option value="2">Bronx</option>
+                    <option value="3">Brooklyn</option>
+                    <option value="4">Queens</option>
+                    <option value="5">Staten Island</option>
+                </select>
+            </div>
+
+            <div class="filter-item">
+                <label>Controller Type</label>
+                <select class="filter-select" @bind="filterOptions.ControllerType" @bind:after="ApplyFilters">
+                    <option value="">All Types</option>
+                    @foreach (var type in controllerTypes)
+                    {
+                        <option value="@type">@type</option>
+                    }
+                </select>
+            </div>
+
+            <div class="filter-item">
+                <label>Equipment Type</label>
+                <select class="filter-select" @bind="filterOptions.EquipmentType" @bind:after="ApplyFilters">
+                    <option value="">All Equipment</option>
+                    @foreach (var type in equipmentTypes)
+                    {
+                        <option value="@type">@type</option>
+                    }
+                </select>
+            </div>
+
+            <div class="filter-item">
+                <label>Page Size</label>
+                <select class="filter-select" @bind="filterOptions.PageSize" @bind:after="ApplyFilters">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+
+            @if (HasActiveFilters())
+            {
+                <button class="btn-clear-filters" @onclick="ClearFilters">
+                    Clear Filters
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    @if (loading)
+    {
+        <div class="loading-overlay">
+            <div class="spinner"></div>
+            <p>Loading signals...</p>
+        </div>
+    }
+    else if (pagedResult != null)
+    {
+        <!-- Data Table -->
+        <div class="odoo-table-container">
+            <table class="odoo-table">
+                <thead>
+                    <tr>
+                        <th class="checkbox-col">
+                            <input type="checkbox" 
+                                   @bind="selectAll" 
+                                   @bind:after="ToggleSelectAll" />
+                        </th>
+                        <th @onclick='() => SortBy("HexAddress")' class="sortable">
+                            HEX Address
+                            @if (filterOptions.SortBy == "HexAddress")
+                            {
+                                <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
+                            }
+                        </th>
+                        <th @onclick='() => SortBy("PoliceCode")' class="sortable">
+                            Police Code
+                            @if (filterOptions.SortBy == "PoliceCode")
+                            {
+                                <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
+                            }
+                        </th>
+                        <th @onclick='() => SortBy("Boro")' class="sortable">
+                            Boro
+                            @if (filterOptions.SortBy == "Boro")
+                            {
+                                <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
+                            }
+                        </th>
+                        <th @onclick='() => SortBy("StreetName1")' class="sortable">
+                            Street 1
+                            @if (filterOptions.SortBy == "StreetName1")
+                            {
+                                <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
+                            }
+                        </th>
+                        <th @onclick='() => SortBy("StreetName2")' class="sortable">
+                            Street 2
+                            @if (filterOptions.SortBy == "StreetName2")
+                            {
+                                <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
+                            }
+                        </th>
+                        <th @onclick='() => SortBy("ControllerType")' class="sortable">
+                            Controller Type
+                            @if (filterOptions.SortBy == "ControllerType")
+                            {
+                                <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
+                            }
+                        </th>
+                        <th @onclick='() => SortBy("EquipmentType")' class="sortable">
+                            Equipment Type
+                            @if (filterOptions.SortBy == "EquipmentType")
+                            {
+                                <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
+                            }
+                        </th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (pagedResult.Items.Any())
+                    {
+                        @foreach (var signal in pagedResult.Items)
+                        {
+                            <tr class="@(selectedIds.Contains(signal.Id) ? "selected" : "")">
+                                <td class="checkbox-col">
+                                    <input type="checkbox" 
+                                           checked="@selectedIds.Contains(signal.Id)"
+                                           @onchange="() => ToggleSelection(signal.Id)" />
+                                </td>
+                                <td class="hex-cell">
+                                    <span class="hex-badge">@signal.HexAddress</span>
+                                </td>
+                                <td>@signal.PoliceCode</td>
+                                <td>
+                                    <span class="boro-badge boro-@signal.Boro">
+                                        @GetBoroName(signal.Boro)
+                                    </span>
+                                </td>
+                                <td>@signal.StreetName1</td>
+                                <td>@signal.StreetName2</td>
+                                <td>@signal.ControllerType</td>
+                                <td>@signal.EquipmentType</td>
+                                <td class="actions-cell">
+                                    <a href="/signals/edit/@signal.Id" class="btn-action edit" title="Edit">
+                                        Edit
+                                    </a>
+                                    <button @onclick="() => DeleteSignal(signal.Id)" class="btn-action delete" title="Delete">
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9" class="no-data">
+                                <div class="no-data-message">
+                                    <p>No traffic signals found</p>
+                                    <small>Try adjusting your filters or <a href="/signals/create">create a new signal</a></small>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        @if (pagedResult.TotalPages > 1)
+        {
+            <div class="odoo-pagination">
+                <div class="pagination-info">
+                    Showing @((pagedResult.PageNumber - 1) * pagedResult.PageSize + 1) 
+                    to @Math.Min(pagedResult.PageNumber * pagedResult.PageSize, pagedResult.TotalCount)
+                    of @pagedResult.TotalCount
+                </div>
+                <div class="pagination-controls">
+                    <button class="btn-page" 
+                            @onclick="FirstPage" 
+                            disabled="@(!pagedResult.HasPreviousPage)">
+                        First
+                    </button>
+                    <button class="btn-page" 
+                            @onclick="PreviousPage" 
+                            disabled="@(!pagedResult.HasPreviousPage)">
+                        Previous
+                    </button>
+                    
+                    <span class="page-numbers">
+                        @foreach (var pageNum in GetPageNumbers())
+                        {
+                            @if (pageNum == -1)
+                            {
+                                <span class="pagination-ellipsis">...</span>
+                            }
+                            else
+                            {
+                                <button class="btn-page-number @(pageNum == pagedResult.PageNumber ? "active" : "")"
+                                        @onclick="() => GoToPage(pageNum)">
+                                    @pageNum
+                                </button>
+                            }
+                        }
+                    </span>
+
+                    <button class="btn-page" 
+                            @onclick="NextPage" 
+                            disabled="@(!pagedResult.HasNextPage)">
+                        Next
+                    </button>
+                    <button class="btn-page" 
+                            @onclick="LastPage" 
+                            disabled="@(!pagedResult.HasNextPage)">
+                        Last
+                    </button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private PagedResult<TrafficSignal>? pagedResult;
+    private SignalFilterOptions filterOptions = new();
+    private bool loading = true;
+    private List<int> selectedIds = new();
+    private bool selectAll = false;
+    private System.Threading.Timer? searchDebounceTimer;
+    private string? successMessage;
+    private string? errorMessage;
+    
+    private List<string> controllerTypes = new();
+    private List<string> equipmentTypes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDistinctValues();
+        await LoadSignals();
+    }
+
+    private async Task LoadDistinctValues()
+    {
+        var allSignals = await SignalService.GetAllAsync();
+        controllerTypes = allSignals
+            .Select(s => s.ControllerType)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Distinct()
+            .OrderBy(t => t)
+            .ToList();
+        
+        equipmentTypes = allSignals
+            .Select(s => s.EquipmentType)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Distinct()
+            .OrderBy(t => t)
+            .ToList();
+    }
+
+    private async Task LoadSignals()
+    {
+        loading = true;
+        selectedIds.Clear();
+        selectAll = false;
+        
+        try
+        {
+            pagedResult = await SignalService.GetPagedAsync(filterOptions);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OnSearchChanged()
+    {
+        searchDebounceTimer?.Dispose();
+        searchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                filterOptions.PageNumber = 1;
+                await LoadSignals();
+                StateHasChanged();
+            });
+        }, null, 500, System.Threading.Timeout.Infinite);
+    }
+
+    private async Task ApplyFilters()
+    {
+        filterOptions.PageNumber = 1;
+        await LoadSignals();
+    }
+
+    private async Task SortBy(string columnName)
+    {
+        if (filterOptions.SortBy == columnName)
+        {
+            filterOptions.SortDescending = !filterOptions.SortDescending;
+        }
+        else
+        {
+            filterOptions.SortBy = columnName;
+            filterOptions.SortDescending = false;
+        }
+        await LoadSignals();
+    }
+
+    private async Task ClearFilters()
+    {
+        filterOptions = new SignalFilterOptions();
+        await LoadSignals();
+    }
+
+    private bool HasActiveFilters()
+    {
+        return !string.IsNullOrWhiteSpace(filterOptions.SearchTerm) ||
+               !string.IsNullOrWhiteSpace(filterOptions.Boro) ||
+               !string.IsNullOrWhiteSpace(filterOptions.ControllerType) ||
+               !string.IsNullOrWhiteSpace(filterOptions.EquipmentType);
+    }
+
+    private void ToggleSelection(int id)
+    {
+        if (selectedIds.Contains(id))
+        {
+            selectedIds.Remove(id);
+        }
+        else
+        {
+            selectedIds.Add(id);
+        }
+        
+        selectAll = pagedResult?.Items.Count > 0 && 
+                    pagedResult.Items.All(s => selectedIds.Contains(s.Id));
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (pagedResult == null) return;
+
+        if (selectAll)
+        {
+            foreach (var signal in pagedResult.Items)
+            {
+                if (!selectedIds.Contains(signal.Id))
+                {
+                    selectedIds.Add(signal.Id);
+                }
+            }
+        }
+        else
+        {
+            foreach (var signal in pagedResult.Items)
+            {
+                selectedIds.Remove(signal.Id);
+            }
+        }
+    }
+
+    private async Task DeleteSelected()
+    {
+        if (!selectedIds.Any()) return;
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", 
+            $"Are you sure you want to delete {selectedIds.Count} signal(s)?");
+        
+        if (confirmed)
+        {
+            try
+            {
+                successMessage = null;
+                errorMessage = null;
+                var count = await SignalService.DeleteBatchAsync(selectedIds);
+                successMessage = $"Successfully deleted {count} signal(s)";
+                selectedIds.Clear();
+                selectAll = false;
+                await LoadSignals();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Delete failed: {ex.Message}";
+            }
+        }
+    }
+
+    private async Task DeleteSignal(int id)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", 
+            "Are you sure you want to delete this signal?");
+        
+        if (confirmed)
+        {
+            try
+            {
+                successMessage = null;
+                errorMessage = null;
+                await SignalService.DeleteAsync(id);
+                successMessage = "Signal deleted successfully";
+                await LoadSignals();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Delete failed: {ex.Message}";
+            }
+        }
+    }
+
+    private async Task FirstPage()
+    {
+        filterOptions.PageNumber = 1;
+        await LoadSignals();
+    }
+
+    private async Task PreviousPage()
+    {
+        if (pagedResult?.HasPreviousPage == true)
+        {
+            filterOptions.PageNumber--;
+            await LoadSignals();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (pagedResult?.HasNextPage == true)
+        {
+            filterOptions.PageNumber++;
+            await LoadSignals();
+        }
+    }
+
+    private async Task LastPage()
+    {
+        if (pagedResult != null)
+        {
+            filterOptions.PageNumber = pagedResult.TotalPages;
+            await LoadSignals();
+        }
+    }
+
+    private async Task GoToPage(int page)
+    {
+        filterOptions.PageNumber = page;
+        await LoadSignals();
+    }
+
+    private List<int> GetPageNumbers()
+    {
+        if (pagedResult == null) return new List<int>();
+
+        var pages = new List<int>();
+        var current = pagedResult.PageNumber;
+        var total = pagedResult.TotalPages;
+
+        // Show max 7 page numbers
+        int start = Math.Max(1, current - 3);
+        int end = Math.Min(total, current + 3);
+
+        if (start > 1)
+        {
+            pages.Add(1);
+            if (start > 2) pages.Add(-1); // Ellipsis
+        }
+
+        for (int i = start; i <= end; i++)
+        {
+            pages.Add(i);
+        }
+
+        if (end < total)
+        {
+            if (end < total - 1) pages.Add(-1); // Ellipsis
+            pages.Add(total);
+        }
+
+        return pages;
+    }
+
+    private string GetBoroName(string boro)
+    {
+        return boro switch
+        {
+            "1" => "MN",
+            "2" => "BX",
+            "3" => "BK",
+            "4" => "QN",
+            "5" => "SI",
+            _ => boro
+        };
+    }
+
+    public void Dispose()
+    {
+        searchDebounceTimer?.Dispose();
+    }
+}
+
+<style>
+    .alert {
+        padding: 1rem 2rem;
+        margin: 1rem 2rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-danger {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .odoo-view {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .odoo-view-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem;
+        background: white;
+        border-bottom: 2px solid #e0e0e0;
+    }
+
+    .view-header-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .view-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+
+    .record-count {
+        color: #714B67;
+        font-weight: 500;
+        padding: 0.25rem 0.75rem;
+        background: #f0e6ed;
+        border-radius: 12px;
+        font-size: 0.75rem;
+    }
+
+    .view-header-right {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-primary, .btn-danger, .btn-clear-filters {
+        display: flex;
+        align-items: center;
+        padding: 0.4rem 0.875rem;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        font-size: 0.8rem;
+    }
+
+    .btn-primary {
+        background: #714B67;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #5a3a52;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #c82333;
+    }
+
+    .btn-clear-filters {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-clear-filters:hover {
+        background: #5a6268;
+    }
+
+    /* Filters */
+    .odoo-filters {
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .filter-group {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+
+    .filter-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        min-width: 150px;
+    }
+
+    .filter-item label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #666;
+    }
+
+    .filter-input, .filter-select {
+        padding: 0.4rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background: white;
+    }
+
+    .filter-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: #714B67;
+        box-shadow: 0 0 0 2px rgba(113, 75, 103, 0.1);
+    }
+
+    /* Loading */
+    .loading-overlay {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem;
+        gap: 1rem;
+    }
+
+    .spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #714B67;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Table */
+    .odoo-table-container {
+        overflow-x: auto;
+    }
+
+    .odoo-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .odoo-table thead {
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .odoo-table th {
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .odoo-table th.sortable {
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s;
+    }
+
+    .odoo-table th.sortable:hover {
+        background: #e9ecef;
+    }
+
+    .sort-icon {
+        margin-left: 0.25rem;
+        font-size: 0.8rem;
+        color: #714B67;
+    }
+
+    .odoo-table td {
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.8rem;
+    }
+
+    .odoo-table tbody tr {
+        transition: background 0.2s;
+    }
+
+    .odoo-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .odoo-table tbody tr.selected {
+        background: #fff3cd;
+    }
+
+    .checkbox-col {
+        width: 40px;
+        text-align: center;
+    }
+
+    .hex-cell {
+        font-family: 'Courier New', monospace;
+    }
+
+    .hex-badge {
+        background: #714B67;
+        color: white;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-weight: 500;
+        font-size: 0.75rem;
+    }
+
+    .boro-badge {
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-weight: 500;
+        font-size: 0.75rem;
+        display: inline-block;
+    }
+
+    .boro-1 { background: #e3f2fd; color: #1976d2; }
+    .boro-2 { background: #f3e5f5; color: #7b1fa2; }
+    .boro-3 { background: #e8f5e9; color: #388e3c; }
+    .boro-4 { background: #fff3e0; color: #f57c00; }
+    .boro-5 { background: #fce4ec; color: #c2185b; }
+
+    .actions-cell {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-action {
+        padding: 0.2rem 0.6rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        transition: all 0.2s;
+        text-decoration: none;
+        background: white;
+        color: #333;
+    }
+
+    .btn-action.edit {
+        border-color: #714B67;
+        color: #714B67;
+    }
+
+    .btn-action.edit:hover {
+        background: #714B67;
+        color: white;
+    }
+
+    .btn-action.delete {
+        border-color: #dc3545;
+        color: #dc3545;
+    }
+
+    .btn-action.delete:hover {
+        background: #dc3545;
+        color: white;
+    }
+
+    .no-data {
+        padding: 3rem !important;
+    }
+
+    .no-data-message {
+        text-align: center;
+        color: #666;
+    }
+
+    /* Pagination */
+    .odoo-pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .pagination-info {
+        color: #666;
+        font-size: 0.8rem;
+    }
+
+    .pagination-controls {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .btn-page {
+        padding: 0.4rem 0.6rem;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.8rem;
+    }
+
+    .btn-page:hover:not(:disabled) {
+        background: #714B67;
+        color: white;
+        border-color: #714B67;
+    }
+
+    .btn-page:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .page-numbers {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .btn-page-number {
+        padding: 0.4rem 0.6rem;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-width: 35px;
+        font-size: 0.8rem;
+    }
+
+    .btn-page-number:hover {
+        background: #f0e6ed;
+        border-color: #714B67;
+    }
+
+    .btn-page-number.active {
+        background: #714B67;
+        color: white;
+        border-color: #714B67;
+        font-weight: 600;
+    }
+
+    .pagination-ellipsis {
+        padding: 0.5rem 0.75rem;
+        color: #666;
+        user-select: none;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .odoo-view-header {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: stretch;
+        }
+
+        .view-header-right {
+            justify-content: stretch;
+        }
+
+        .filter-group {
+            flex-direction: column;
+        }
+
+        .filter-item {
+            width: 100%;
+        }
+
+        .odoo-pagination {
+            flex-direction: column;
+            gap: 1rem;
+        }
+    }
+</style>

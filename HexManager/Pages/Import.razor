@@ -1,0 +1,752 @@
+@page "/import"
+@using HexManager.Services
+@inject ITrafficSignalService SignalService
+@inject NavigationManager Navigation
+
+<PageTitle>Import CSV Data</PageTitle>
+
+<div class="odoo-view">
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success">
+            @successMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    <div class="import-content">
+        <div class="import-grid">
+            <!-- Upload CSV File Section -->
+            <div class="import-section">
+                <h2 class="section-title">Upload CSV File</h2>
+                <p class="section-description">Upload a CSV file from your computer to import traffic signal data.</p>
+                
+                <div class="upload-area">
+                    <InputFile OnChange="HandleFileSelected" class="file-input" accept=".csv" id="fileInput" />
+                    <label for="fileInput" class="file-label">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">
+                            <div class="upload-title">Click to select CSV file</div>
+                            <div class="upload-subtitle">or drag and drop</div>
+                        </div>
+                    </label>
+                </div>
+
+                @if (selectedFile != null)
+                {
+                    <div class="file-selected">
+                        <div class="file-info">
+                            <div class="file-name">@selectedFile.Name</div>
+                            <div class="file-size">@FormatFileSize(selectedFile.Size)</div>
+                        </div>
+                    </div>
+                }
+
+                <div class="action-buttons">
+                    <button class="btn-import" @onclick="ImportFile" disabled="@(importing || selectedFile == null)">
+                        @if (importing && importingFilePath == "upload")
+                        {
+                            <span class="spinner"></span>
+                            <span>Importing...</span>
+                        }
+                        else
+                        {
+                            <span>Import CSV</span>
+                        }
+                    </button>
+                    <a href="/" class="btn-cancel-import">Cancel</a>
+                </div>
+
+                @if (importing && importProgress > 0)
+                {
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: @importProgress%"></div>
+                        </div>
+                        <div class="progress-text">@importProgress%</div>
+                    </div>
+                }
+            </div>
+
+            <!-- CSV Format Reference -->
+            <div class="import-section">
+                <h2 class="section-title">CSV Format Requirements</h2>
+                <p class="section-description">Your CSV file must include the following columns:</p>
+                
+                <div class="format-example">
+                    <div class="code-block">
+                        <div class="code-header">Example CSV Format</div>
+                        <pre class="code-content">POLICE CODE,BORO,STREET NAME 1,STREET NAME 2,
+CONTROLLER TYPE,ATCS_CABINET_ADDRESS_HEX,...
+
+10005000580,1,ALLEN STREET,CANAL STREET,
+ASTC 12,0F96,...</pre>
+                    </div>
+                </div>
+                
+                <div class="required-columns">
+                    <div class="column-title">Key Columns:</div>
+                    <ul class="column-list">
+                        <li>ATCS_CABINET_ADDRESS_HEX (Required)</li>
+                        <li>BORO (1-5)</li>
+                        <li>STREET NAME 1</li>
+                        <li>STREET NAME 2</li>
+                        <li>CONTROLLER TYPE</li>
+                        <li>POLICE CODE</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import from Project Files Section -->
+        <div class="import-section full-width">
+            <h2 class="section-title">Import from Project Files</h2>
+            <p class="section-description">Quick import from pre-loaded CSV files in the project directory.</p>
+            
+            <div class="project-files-grid">
+                @foreach (var file in projectFiles)
+                {
+                    <div class="project-file-card">
+                        <div class="file-header">
+                            <div class="file-icon">📄</div>
+                            <div class="file-name">@file.Name</div>
+                        </div>
+                        <div class="file-description">@file.Description</div>
+                        <button class="btn-import-file" 
+                                @onclick="() => ImportProjectFile(file.Path)"
+                                disabled="@importing">
+                            @if (importing && importingFilePath == file.Path)
+                            {
+                                <span class="spinner-small"></span>
+                                <span>Importing...</span>
+                            }
+                            else
+                            {
+                                <span>Import</span>
+                            }
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IBrowserFile? selectedFile;
+    private bool importing = false;
+    private string? importingFilePath = null; // Track which file is being imported
+    private int importedCount = 0;
+    private int importProgress = 0;
+    private string? successMessage;
+    private string? errorMessage;
+
+    private List<ProjectFile> projectFiles = new()
+    {
+        new ProjectFile 
+        { 
+            Name = "ts_exp_psgm_full_1.csv", 
+            Path = "/Users/minh.nguyenlevien/henry-project/hex-project/ts_exp_psgm_full_1.csv",
+            Description = "Manhattan (Borough 1) - ~3,000 records"
+        },
+        new ProjectFile 
+        { 
+            Name = "ts_exp_psgm_full_2.csv", 
+            Path = "/Users/minh.nguyenlevien/henry-project/hex-project/ts_exp_psgm_full_2.csv",
+            Description = "Bronx (Borough 2) - ~2,000 records"
+        },
+        new ProjectFile 
+        { 
+            Name = "ts_exp_psgm_full_3.csv", 
+            Path = "/Users/minh.nguyenlevien/henry-project/hex-project/ts_exp_psgm_full_3.csv",
+            Description = "Brooklyn (Borough 3) - ~5,200 records"
+        },
+        new ProjectFile 
+        { 
+            Name = "ts_exp_psgm_full_4.csv", 
+            Path = "/Users/minh.nguyenlevien/henry-project/hex-project/ts_exp_psgm_full_4.csv",
+            Description = "Queens (Borough 4) - ~3,700 records"
+        },
+        new ProjectFile 
+        { 
+            Name = "ts_exp_psgm_full_5.csv", 
+            Path = "/Users/minh.nguyenlevien/henry-project/hex-project/ts_exp_psgm_full_5.csv",
+            Description = "Staten Island (Borough 5) - ~750 records"
+        },
+        new ProjectFile 
+        { 
+            Name = "ts_exp_psgm_full_all.csv", 
+            Path = "/Users/minh.nguyenlevien/henry-project/hex-project/ts_exp_psgm_full_all.csv",
+            Description = "All Boroughs Combined - ~14,700 records"
+        }
+    };
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+    }
+
+    private async Task ImportFile()
+    {
+        if (selectedFile == null) return;
+
+        successMessage = null;
+        errorMessage = null;
+        importing = true;
+        importingFilePath = "upload"; // Mark upload button as importing
+        importProgress = 0;
+        StateHasChanged(); // Force UI update to show spinner
+
+        try
+        {
+            var tempPath = Path.Combine(Path.GetTempPath(), selectedFile.Name);
+            
+            await using (var fs = new FileStream(tempPath, FileMode.Create))
+            {
+                await selectedFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024).CopyToAsync(fs);
+            }
+            
+            importProgress = 50;
+            importedCount = await SignalService.ImportFromCsvAsync(tempPath);
+            importProgress = 100;
+            
+            File.Delete(tempPath);
+            
+            successMessage = $"Successfully imported {importedCount} traffic signals";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Import failed: {ex.Message}";
+        }
+        finally
+        {
+            importing = false;
+            importingFilePath = null;
+            importProgress = 0;
+            StateHasChanged(); // Force UI update after import completes
+        }
+    }
+
+    private async Task ImportProjectFile(string filePath)
+    {
+        successMessage = null;
+        errorMessage = null;
+        importing = true;
+        importingFilePath = filePath; // Track which file is being imported
+        importProgress = 0;
+        StateHasChanged(); // Force UI update to show spinner
+
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                errorMessage = "File not found";
+                return;
+            }
+
+            importProgress = 50;
+            importedCount = await SignalService.ImportFromCsvAsync(filePath);
+            importProgress = 100;
+            
+            successMessage = $"Successfully imported {importedCount} traffic signals";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Import failed: {ex.Message}";
+        }
+        finally
+        {
+            importing = false;
+            importingFilePath = null;
+            importProgress = 0;
+            StateHasChanged(); // Force UI update after import completes
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+
+    private class ProjectFile
+    {
+        public string Name { get; set; } = "";
+        public string Path { get; set; } = "";
+        public string Description { get; set; } = "";
+    }
+}
+
+<style>
+    .alert {
+        padding: 1rem 2rem;
+        margin: 1rem 2rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-danger {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .import-content {
+        padding: 2rem;
+        width: 100%;
+    }
+
+    .import-alert {
+        margin: 1.5rem 2rem;
+        padding: 1.25rem 1.5rem;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .import-alert.error {
+        background: #fee;
+        border-left: 4px solid #dc3545;
+        color: #721c24;
+    }
+
+    .import-alert.success {
+        background: #d4edda;
+        border-left: 4px solid #28a745;
+        color: #155724;
+    }
+
+    .alert-content {
+        flex: 1;
+    }
+
+    .alert-content p {
+        margin: 0.5rem 0 1rem 0;
+    }
+
+    .btn-view-signals {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: #28a745;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .btn-view-signals:hover {
+        background: #218838;
+    }
+
+    .alert-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        color: inherit;
+        opacity: 0.7;
+    }
+
+    .alert-close:hover {
+        opacity: 1;
+    }
+
+    .import-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .import-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .import-section.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .section-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #714B67;
+        margin: 0 0 0.4rem 0;
+    }
+
+    .section-description {
+        color: #666;
+        margin: 0 0 1.25rem 0;
+        font-size: 0.85rem;
+    }
+
+    .upload-area {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .file-input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .file-label {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 2rem;
+        border: 2px dashed #d0d0d0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #fafafa;
+    }
+
+    .file-label:hover {
+        border-color: #714B67;
+        background: #f0e6ed;
+    }
+
+    .upload-icon {
+        font-size: 3rem;
+    }
+
+    .upload-text {
+        flex: 1;
+    }
+
+    .upload-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+
+    .upload-subtitle {
+        color: #666;
+        font-size: 0.8rem;
+    }
+
+    .file-selected {
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+    }
+
+    .file-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .file-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 0.85rem;
+    }
+
+    .file-size {
+        color: #666;
+        font-size: 0.8rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .btn-import {
+        background: #714B67;
+        color: white;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        font-size: 0.85rem;
+        min-width: 120px;
+    }
+
+    .btn-import:hover:not(:disabled) {
+        background: #5a3a52;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .btn-import:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-cancel-import {
+        background: white;
+        color: #666;
+        border: 1px solid #ddd;
+        padding: 0.6rem 1.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.2s;
+        font-size: 0.85rem;
+    }
+
+    .btn-cancel-import:hover {
+        background: #f8f9fa;
+        border-color: #714B67;
+        color: #714B67;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+        vertical-align: middle;
+    }
+
+    .spinner-small {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(113, 75, 103, 0.3);
+        border-top-color: #714B67;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+        vertical-align: middle;
+    }
+    
+    .btn-import-file:disabled .spinner-small {
+        border: 2px solid rgba(113, 75, 103, 0.3);
+        border-top-color: #714B67;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .progress-container {
+        margin-top: 1rem;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 24px;
+        background: #e9ecef;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #714B67 0%, #8B5A8D 100%);
+        transition: width 0.3s ease;
+    }
+
+    .progress-text {
+        text-align: center;
+        margin-top: 0.5rem;
+        font-weight: 600;
+        color: #714B67;
+    }
+
+    .format-example {
+        margin-bottom: 1.5rem;
+    }
+
+    .code-block {
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .code-header {
+        background: #f8f9fa;
+        padding: 0.6rem 0.875rem;
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #555;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .code-content {
+        padding: 0.875rem;
+        margin: 0;
+        font-size: 0.75rem;
+        overflow-x: auto;
+        background: #fafafa;
+        color: #333;
+        line-height: 1.5;
+    }
+
+    .required-columns {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 6px;
+    }
+
+    .column-title {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.6rem;
+        font-size: 0.85rem;
+    }
+
+    .column-list {
+        margin: 0;
+        padding-left: 1.5rem;
+        color: #555;
+        font-size: 0.8rem;
+    }
+
+    .column-list li {
+        margin-bottom: 0.4rem;
+    }
+
+    .project-files-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .project-file-card {
+        background: #fafafa;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: all 0.2s;
+    }
+
+    .project-file-card:hover {
+        border-color: #714B67;
+        box-shadow: 0 2px 8px rgba(113, 75, 103, 0.15);
+    }
+
+    .file-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .file-icon {
+        font-size: 1.5rem;
+    }
+
+    .project-file-card .file-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 0.85rem;
+    }
+
+    .file-description {
+        color: #666;
+        font-size: 0.8rem;
+        margin-bottom: 0.875rem;
+        line-height: 1.5;
+    }
+
+    .btn-import-file {
+        width: 100%;
+        background: white;
+        color: #714B67;
+        border: 1px solid #714B67;
+        padding: 0.5rem 0.875rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .btn-import-file:hover:not(:disabled) {
+        background: #714B67;
+        color: white;
+    }
+
+    .btn-import-file:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    @@media (max-width: 1024px) {
+        .import-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .project-files-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 640px) {
+        .import-content {
+            padding: 1rem;
+        }
+
+        .import-section {
+            padding: 1.5rem;
+        }
+
+        .file-label {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .btn-import, .btn-cancel-import {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>

@@ -1,0 +1,55 @@
+is_global = true
+build_property.TargetFramework = net8.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = HexManager
+build_property.RootNamespace = HexManager
+build_property.ProjectDir = /Users/minh.nguyenlevien/henry-project/HexManager/
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 8.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = /Users/minh.nguyenlevien/henry-project/HexManager
+build_property._RazorSourceGeneratorDebug = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/App.razor]
+build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/Pages/Import.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvSW1wb3J0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/Pages/Signals/SignalForm.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvU2lnbmFscy9TaWduYWxGb3JtLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/Pages/Signals/SignalList.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvU2lnbmFscy9TaWduYWxMaXN0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/Shared/MainLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkL01haW5MYXlvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = X0ltcG9ydHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/Pages/Error.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvRXJyb3IuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/Pages/_Host.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvX0hvc3QuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/minh.nguyenlevien/henry-project/HexManager/Pages/_Layout.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvX0xheW91dC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
