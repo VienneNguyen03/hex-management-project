@@ -48,9 +48,13 @@ public class AuthenticationService : IAuthenticationService
             }
 
             // Compare passwords (plain text for now, can be hashed later)
+            _logger.LogInformation("Login attempt - Username: {Username}, Provided password length: {Length}, Stored password length: {StoredLength}", 
+                username, password?.Length ?? 0, user.Password?.Length ?? 0);
+            
             if (user.Password != password)
             {
-                _logger.LogWarning("Failed login attempt for username: {Username} - Invalid password", username);
+                _logger.LogWarning("Failed login attempt for username: {Username} - Invalid password. Expected: {Expected}, Got: {Got}", 
+                    username, user.Password, password);
                 return false;
             }
 

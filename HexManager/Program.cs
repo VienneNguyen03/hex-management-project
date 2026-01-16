@@ -6,6 +6,7 @@ using HexManager.Models;
 using HexManager.Services;
 using System.Globalization;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.DataProtection;
 
 var culture = new CultureInfo("en-US");
 CultureInfo.DefaultThreadCurrentCulture = culture;
@@ -46,6 +47,15 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
+// Configure Data Protection for production (persist keys)
+var dataProtectionKeysPath = Environment.GetEnvironmentVariable("DATA_PROTECTION_KEYS_PATH") 
+    ?? Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? "/app", ".aspnet", "DataProtection-Keys");
+Directory.CreateDirectory(dataProtectionKeysPath);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath))
+    .SetApplicationName("HexManager");
+
 var app = builder.Build();
 
 // Ensure database is created and seed initial admin user
@@ -68,6 +78,7 @@ using (var scope = app.Services.CreateScope())
             var adminEmail = builder.Configuration["Authentication:AuthorizedEmail"] ?? "admin@hexmanager.com";
             
             logger.LogInformation("Creating initial admin user with email: {Email}", adminEmail);
+            logger.LogInformation("Admin password: {Password}", adminPassword);
             
             var adminUser = new HexManager.Models.User
             {
@@ -79,11 +90,24 @@ using (var scope = app.Services.CreateScope())
             context.Users.Add(adminUser);
             await context.SaveChangesAsync();
             
-            logger.LogInformation("Admin user created successfully. Username: admin");
+            logger.LogInformation("Admin user created successfully. Username: admin, Password: {Password}", adminPassword);
+            
+            // Verify the user was saved
+            var verifyUser = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+            if (verifyUser != null)
+            {
+                logger.LogInformation("Verified: Admin user exists in database. Password length: {Length}", verifyUser.Password.Length);
+            }
+            else
+            {
+                logger.LogError("ERROR: Admin user was not saved to database!");
+            }
         }
         else
         {
-            logger.LogInformation("Admin user already exists.");
+            var existingAdmin = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+            logger.LogInformation("Admin user already exists. Email: {Email}, Password length: {Length}", 
+                existingAdmin?.Email ?? "unknown", existingAdmin?.Password.Length ?? 0);
         }
     }
     catch (Exception ex)
