@@ -52,21 +52,44 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    context.Database.EnsureCreated();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     
-    // Seed initial admin user if not exists
-    var adminExists = await context.Users.AnyAsync(u => u.Username == "admin");
-    if (!adminExists)
+    try
     {
-        var adminUser = new HexManager.Models.User
+        logger.LogInformation("Ensuring database is created...");
+        context.Database.EnsureCreated();
+        logger.LogInformation("Database ensured.");
+        
+        // Seed initial admin user if not exists
+        var adminExists = await context.Users.AnyAsync(u => u.Username == "admin");
+        if (!adminExists)
         {
-            Username = "admin",
-            Password = "(n)4zo$7^F|0<c\"6cP`)DjK20Od<}!Fm$",
-            Email = builder.Configuration["Authentication:AuthorizedEmail"] ?? "admin@hexmanager.com",
-            CreatedAt = DateTime.UtcNow
-        };
-        context.Users.Add(adminUser);
-        await context.SaveChangesAsync();
+            var adminPassword = "(n)4zo$7^F|0<c\"6cP`)DjK20Od<}!Fm$";
+            var adminEmail = builder.Configuration["Authentication:AuthorizedEmail"] ?? "admin@hexmanager.com";
+            
+            logger.LogInformation("Creating initial admin user with email: {Email}", adminEmail);
+            
+            var adminUser = new HexManager.Models.User
+            {
+                Username = "admin",
+                Password = adminPassword,
+                Email = adminEmail,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.Users.Add(adminUser);
+            await context.SaveChangesAsync();
+            
+            logger.LogInformation("Admin user created successfully. Username: admin");
+        }
+        else
+        {
+            logger.LogInformation("Admin user already exists.");
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error during database initialization: {Error}", ex.Message);
+        throw;
     }
 }
 
