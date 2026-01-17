@@ -48,13 +48,41 @@ builder.Services.AddSession(options =>
 });
 
 // Configure Data Protection for production (persist keys)
-var dataProtectionKeysPath = Environment.GetEnvironmentVariable("DATA_PROTECTION_KEYS_PATH") 
-    ?? Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? "/app", ".aspnet", "DataProtection-Keys");
-Directory.CreateDirectory(dataProtectionKeysPath);
+var dataProtectionKeysPath = Environment.GetEnvironmentVariable("DATA_PROTECTION_KEYS_PATH");
+if (string.IsNullOrEmpty(dataProtectionKeysPath))
+{
+    var railwayVolumePath = "/data/.aspnet/DataProtection-Keys";
+    if (Directory.Exists("/data"))
+    {
+        dataProtectionKeysPath = railwayVolumePath;
+    }
+    else
+    {
+        dataProtectionKeysPath = "/tmp/.aspnet/DataProtection-Keys";
+    }
+}
 
-builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath))
+string? finalKeysPath = null;
+try
+{
+    Directory.CreateDirectory(dataProtectionKeysPath);
+    finalKeysPath = dataProtectionKeysPath;
+    Console.WriteLine($"[Data Protection] Keys will be stored at: {dataProtectionKeysPath}");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Data Protection] WARNING: Could not create directory at {dataProtectionKeysPath}: {ex.Message}");
+    Console.WriteLine("[Data Protection] Using in-memory keys (will reset on container restart)");
+    finalKeysPath = null; // Will use in-memory keys
+}
+
+var dataProtectionBuilder = builder.Services.AddDataProtection()
     .SetApplicationName("HexManager");
+
+if (!string.IsNullOrEmpty(finalKeysPath))
+{
+    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(finalKeysPath));
+}
 
 var app = builder.Build();
 
@@ -136,7 +164,13 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+}
+else
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseStaticFiles();
 

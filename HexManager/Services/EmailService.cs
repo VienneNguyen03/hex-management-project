@@ -66,19 +66,21 @@ Hex Manager Team
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send verification code email to {Email}. Error: {Error}", email, ex.Message);
-            
-            // Don't throw in production - Railway/Cloud platforms often block SMTP
-            // This allows the app to continue running even if email fails
-            if (ex is System.Net.Sockets.SocketException || ex is System.Net.Mail.SmtpException)
+            if (ex is System.Net.Sockets.SocketException socketEx)
             {
-                _logger.LogWarning("SMTP connection failed. This may be due to network restrictions on the hosting platform.");
-                _logger.LogWarning("Consider using an email service like SendGrid, Mailgun, or AWS SES instead of direct SMTP.");
-                // Don't throw - allow app to continue
+                _logger.LogWarning("SMTP connection failed (Network unreachable). This is expected on Railway and similar platforms that block direct SMTP connections.");
                 return;
             }
             
-            // Re-throw only in development for debugging
+            if (ex is System.Net.Mail.SmtpException smtpEx)
+            {
+                _logger.LogWarning("SMTP error occurred: {Error}. This may be due to network restrictions on the hosting platform.", smtpEx.Message);
+                _logger.LogWarning("Email service is disabled. Consider using SendGrid, Mailgun, or AWS SES for production email delivery.");
+                return;
+            }
+            
+            _logger.LogError(ex, "Unexpected error sending verification code email to {Email}. Error: {Error}", email, ex.Message);
+            
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             if (environment == "Development")
             {

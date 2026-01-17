@@ -61,26 +61,27 @@ public class AuthenticationService : IAuthenticationService
             {
                 try
                 {
+                    var isProduction = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")) 
+                        && Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != "Development";
+                    
                     var cookieOptions = new CookieOptions
                     {
                         HttpOnly = true,
-                        Secure = false,
+                        Secure = isProduction,
                         SameSite = SameSiteMode.Lax,
                         Expires = DateTimeOffset.UtcNow.AddHours(8)
                     };
+
+                    httpContext.Response.Cookies.Append(AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE, cookieOptions);
                     
-                    if (!httpContext.Response.HasStarted)
+                    if (httpContext.Response.HasStarted)
                     {
-                        httpContext.Response.Cookies.Append(AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE, cookieOptions);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Response has started, cookie will be set on next request");
+                        _logger.LogDebug("Response has started, cookie will be set on next request");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error setting authentication cookie");
+                    _logger.LogError(ex, "Error setting authentication cookie: {Error}", ex.Message);
                 }
             }
 
