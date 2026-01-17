@@ -8,6 +8,11 @@ public interface IHexGeneratorService
     Task<string> GenerateNextHexAddressAsync();
     
     /// <summary>
+    /// Generate a new unique HEX address from a specific CSV file path
+    /// </summary>
+    Task<string> GenerateNextHexAddressFromFileAsync(string csvFilePath);
+    
+    /// <summary>
     /// Validate if a HEX address is valid format (4 characters hex)
     /// </summary>
     bool IsValidHexAddress(string hexAddress);

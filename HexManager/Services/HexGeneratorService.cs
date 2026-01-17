@@ -1,18 +1,22 @@
 using System.Text.RegularExpressions;
-using HexManager.Data;
-using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using CsvHelper;
+using CsvHelper.Configuration;
+using Microsoft.Extensions.Configuration;
 
 namespace HexManager.Services;
 
 public class HexGeneratorService : IHexGeneratorService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<HexGeneratorService> _logger;
     private static readonly Regex HexPattern = new Regex(@"^[0-9A-Fa-f]{4}$", RegexOptions.Compiled);
+    
+    private readonly HashSet<string> _generatedHexesInSession = new();
 
-    public HexGeneratorService(ApplicationDbContext context, ILogger<HexGeneratorService> logger)
+    public HexGeneratorService(IConfiguration configuration, ILogger<HexGeneratorService> logger)
     {
-        _context = context;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -26,10 +30,67 @@ public class HexGeneratorService : IHexGeneratorService
 
     public async Task<string> GenerateNextHexAddressAsync()
     {
-        var existingHexes = await _context.TrafficSignals
-            .Select(s => s.HexAddress)
-            .Where(h => !string.IsNullOrEmpty(h))
-            .ToListAsync();
+        // Read existing hex addresses from CSV file
+        var existingHexes = await ReadHexAddressesFromCsvAsync();
+
+        // Combine CSV hexes with session-generated hexes
+        var allExistingHexes = existingHexes.Union(_generatedHexesInSession).ToList();
+
+        // Filter valid hex addresses and convert to integers
+        var validHexValues = allExistingHexes
+            .Where(h => IsValidHexAddress(h))
+            .Select(h => Convert.ToInt32(h, 16))
+            .OrderBy(v => v)
+            .ToList();
+
+        if (validHexValues.Count == 0)
+        {
+            // Start from 0001 if no valid hex exists
+            var firstHex = "0001";
+            _generatedHexesInSession.Add(firstHex);
+            _logger.LogInformation("Generated next HEX address: {HexAddress}", firstHex);
+            return firstHex;
+        }
+
+        var maxValue = validHexValues.Max();
+        var nextValue = maxValue + 1;
+
+        string nextHex;
+        
+        if (nextValue > 0xFFFF)
+        {
+            var nextAvailable = FindFirstGap(validHexValues);
+            if (nextAvailable.HasValue)
+            {
+                nextHex = nextAvailable.Value.ToString("X4");
+            }
+            else
+            {
+                throw new InvalidOperationException("No available HEX addresses. All 4-character combinations are used.");
+            }
+        }
+        else
+        {
+            nextHex = nextValue.ToString("X4");
+        }
+        
+        // Add to session cache to avoid duplicates in same session
+        _generatedHexesInSession.Add(nextHex);
+        
+        _logger.LogInformation("Generated next HEX address: {HexAddress}", nextHex);
+        
+        return nextHex;
+    }
+
+    public async Task<string> GetNextAvailableHexAsync()
+    {
+        return await GenerateNextHexAddressAsync();
+    }
+
+    public async Task<string> GenerateNextHexAddressFromFileAsync(string csvFilePath)
+    {
+        // Read existing hex addresses from the specified CSV file
+        var existingHexes = await ReadHexAddressesFromCsvFileAsync(csvFilePath);
 
         // Filter valid hex addresses and convert to integers
         var validHexValues = existingHexes
@@ -41,45 +102,47 @@ public class HexGeneratorService : IHexGeneratorService
         if (validHexValues.Count == 0)
         {
             // Start from 0001 if no valid hex exists
-            return "0001";
+            var firstHex = "0001";
+            _logger.LogInformation("Generated next HEX address from file: {HexAddress}", firstHex);
+            return firstHex;
         }
 
-        // Get the highest value and increment
         var maxValue = validHexValues.Max();
         var nextValue = maxValue + 1;
 
-        // Check if we've exceeded the 4-character hex limit (FFFF = 65535)
+        string nextHex;
+        
         if (nextValue > 0xFFFF)
         {
-            // Find gaps in the sequence
             var nextAvailable = FindFirstGap(validHexValues);
             if (nextAvailable.HasValue)
             {
-                return nextAvailable.Value.ToString("X4");
+                nextHex = nextAvailable.Value.ToString("X4");
             }
-            
-            throw new InvalidOperationException("No available HEX addresses. All 4-character combinations are used.");
+            else
+            {
+                throw new InvalidOperationException("No available HEX addresses. All 4-character combinations are used.");
+            }
         }
-
-        var nextHex = nextValue.ToString("X4");
-        _logger.LogInformation("Generated next HEX address: {HexAddress}", nextHex);
+        else
+        {
+            nextHex = nextValue.ToString("X4");
+        }
+        
+        _logger.LogInformation("Generated next HEX address from file: {HexAddress}", nextHex);
         
         return nextHex;
     }
 
-    public async Task<string> GetNextAvailableHexAsync()
-    {
-        return await GenerateNextHexAddressAsync();
-    }
-
     public async Task<List<string>> SuggestAvailableHexAddressesAsync(int count = 5)
     {
-        var existingHexes = await _context.TrafficSignals
-            .Select(s => s.HexAddress)
-            .Where(h => !string.IsNullOrEmpty(h))
-            .ToListAsync();
+        // Read existing hex addresses from CSV file
+        var existingHexes = await ReadHexAddressesFromCsvAsync();
 
-        var validHexValues = existingHexes
+        // Combine CSV hexes with session-generated hexes
+        var allExistingHexes = existingHexes.Union(_generatedHexesInSession).ToList();
+
+        var validHexValues = allExistingHexes
             .Where(h => IsValidHexAddress(h))
             .Select(h => Convert.ToInt32(h, 16))
             .OrderBy(v => v)
@@ -137,5 +200,156 @@ public class HexGeneratorService : IHexGeneratorService
         }
         
         return null;
+    }
+
+    /// <summary>
+    /// Read all HEX addresses from the configured CSV file
+    /// </summary>
+    private async Task<List<string>> ReadHexAddressesFromCsvAsync()
+    {
+        var csvFilePath = _configuration["CsvSettings:SourceFilePath"];
+        
+        if (string.IsNullOrWhiteSpace(csvFilePath))
+        {
+            _logger.LogWarning("CSV file path not configured. Returning empty list.");
+            return new List<string>();
+        }
+
+        // Normalize path separators for cross-platform compatibility
+        csvFilePath = csvFilePath.Replace('\\', Path.DirectorySeparatorChar);
+
+        if (!File.Exists(csvFilePath))
+        {
+            _logger.LogWarning("CSV file not found at path: {FilePath}. Returning empty list.", csvFilePath);
+            return new List<string>();
+        }
+
+        var hexAddresses = new List<string>();
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                using var reader = new StreamReader(csvFilePath);
+                using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    HeaderValidated = null,
+                    MissingFieldFound = null
+                });
+
+                csv.Read();
+                csv.ReadHeader();
+
+                while (csv.Read())
+                {
+                    try
+                    {
+                        var hexValue = csv.GetField("ATCS_CABINET_ADDRESS_HEX") 
+                            ?? csv.GetField("ASTC_CABINET_ADDRESS_HEX");
+                        
+                        if (!string.IsNullOrWhiteSpace(hexValue))
+                        {
+                            // Normalize: trim and uppercase
+                            hexValue = hexValue.Trim().ToUpper();
+                            
+                            // Only add valid hex addresses
+                            if (IsValidHexAddress(hexValue))
+                            {
+                                hexAddresses.Add(hexValue);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Skip invalid rows
+                        _logger.LogDebug("Skipped invalid row while reading CSV: {Error}", ex.Message);
+                    }
+                }
+            });
+
+            _logger.LogInformation("Read {Count} HEX addresses from CSV file: {FilePath}", hexAddresses.Count, csvFilePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading CSV file from path: {FilePath}", csvFilePath);
+            throw new InvalidOperationException($"Failed to read CSV file: {ex.Message}", ex);
+        }
+
+        return hexAddresses;
+    }
+
+    /// <summary>
+    /// Read all HEX addresses from a specific CSV file path
+    /// </summary>
+    private async Task<List<string>> ReadHexAddressesFromCsvFileAsync(string csvFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(csvFilePath))
+        {
+            _logger.LogWarning("CSV file path is empty. Returning empty list.");
+            return new List<string>();
+        }
+
+        // Normalize path separators for cross-platform compatibility
+        csvFilePath = csvFilePath.Replace('\\', Path.DirectorySeparatorChar);
+
+        if (!File.Exists(csvFilePath))
+        {
+            _logger.LogWarning("CSV file not found at path: {FilePath}. Returning empty list.", csvFilePath);
+            return new List<string>();
+        }
+
+        var hexAddresses = new List<string>();
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                using var reader = new StreamReader(csvFilePath);
+                using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    HeaderValidated = null,
+                    MissingFieldFound = null
+                });
+
+                csv.Read();
+                csv.ReadHeader();
+
+                while (csv.Read())
+                {
+                    try
+                    {
+                        // Priority: ASTC_CABINET_ADDRESS_HEX (as per customer requirement)
+                        var hexValue = csv.GetField("ASTC_CABINET_ADDRESS_HEX") 
+                            ?? csv.GetField("ATCS_CABINET_ADDRESS_HEX");
+                        
+                        if (!string.IsNullOrWhiteSpace(hexValue))
+                        {
+                            // Normalize: trim and uppercase
+                            hexValue = hexValue.Trim().ToUpper();
+                            
+                            // Only add valid hex addresses
+                            if (IsValidHexAddress(hexValue))
+                            {
+                                hexAddresses.Add(hexValue);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Skip invalid rows
+                        _logger.LogDebug("Skipped invalid row while reading CSV: {Error}", ex.Message);
+                    }
+                }
+            });
+
+            _logger.LogInformation("Read {Count} HEX addresses from CSV file: {FilePath}", hexAddresses.Count, csvFilePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading CSV file from path: {FilePath}", csvFilePath);
+            throw new InvalidOperationException($"Failed to read CSV file: {ex.Message}", ex);
+        }
+
+        return hexAddresses;
     }
 }

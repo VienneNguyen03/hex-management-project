@@ -14,7 +14,7 @@ public class AuthenticationService : IAuthenticationService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ApplicationDbContext _dbContext;
     private static readonly Dictionary<string, VerificationCodeInfo> _verificationCodes = new();
-    private static readonly Dictionary<string, bool> _verifiedEmails = new(); // Track verified emails for password reset
+    private static readonly Dictionary<string, bool> _verifiedEmails = new();
     
     private const string AUTH_COOKIE_NAME = "HexManager.Auth";
     private const string AUTH_COOKIE_VALUE = "authenticated";
@@ -37,7 +37,6 @@ public class AuthenticationService : IAuthenticationService
     {
         try
         {
-            // Check user in database
             var user = await _dbContext.Users
                 .FirstOrDefaultAsync(u => u.Username == username);
 
@@ -47,7 +46,6 @@ public class AuthenticationService : IAuthenticationService
                 return false;
             }
 
-            // Compare passwords (plain text for now, can be hashed later)
             _logger.LogInformation("Login attempt - Username: {Username}, Provided password length: {Length}, Stored password length: {StoredLength}", 
                 username, password?.Length ?? 0, user.Password?.Length ?? 0);
             
@@ -58,7 +56,6 @@ public class AuthenticationService : IAuthenticationService
                 return false;
             }
 
-            // Set authentication cookie
             var httpContext = _httpContextAccessor.HttpContext;
             if (httpContext != null)
             {
@@ -67,9 +64,9 @@ public class AuthenticationService : IAuthenticationService
                     var cookieOptions = new CookieOptions
                     {
                         HttpOnly = true,
-                        Secure = false, // Set to true in production with HTTPS
+                        Secure = false,
                         SameSite = SameSiteMode.Lax,
-                        Expires = DateTimeOffset.UtcNow.AddHours(8) // 8 hour session
+                        Expires = DateTimeOffset.UtcNow.AddHours(8)
                     };
                     
                     if (!httpContext.Response.HasStarted)
@@ -99,7 +96,6 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<string> GenerateVerificationCodeAsync(string email)
     {
-        // Security: Only allow password reset for authorized email
         var authorizedEmail = _configuration["Authentication:AuthorizedEmail"];
         
         if (string.IsNullOrEmpty(authorizedEmail))
@@ -108,25 +104,21 @@ public class AuthenticationService : IAuthenticationService
             throw new UnauthorizedAccessException("Password reset is not configured for this email address.");
         }
 
-        // Validate email matches authorized email (case-insensitive)
         if (!email.Equals(authorizedEmail, StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogWarning("Unauthorized password reset attempt for email: {Email}", email);
             throw new UnauthorizedAccessException("This email address is not authorized for password reset.");
         }
 
-        // Generate 6-digit verification code
         var random = new Random();
         var code = random.Next(100000, 999999).ToString();
 
-        // Store code with expiration (10 minutes) - use authorized email as key
         _verificationCodes[authorizedEmail] = new VerificationCodeInfo
         {
             Code = code,
             ExpiresAt = DateTime.UtcNow.AddMinutes(10)
         };
 
-        // Send email to authorized email only
         await _emailService.SendVerificationCodeAsync(authorizedEmail, code);
 
         _logger.LogInformation("Verification code generated for authorized email: {Email}", authorizedEmail);
@@ -135,7 +127,6 @@ public class AuthenticationService : IAuthenticationService
 
     public Task<bool> VerifyCodeAsync(string email, string code)
     {
-        // Security: Only verify code for authorized email
         var authorizedEmail = _configuration["Authentication:AuthorizedEmail"];
         
         if (string.IsNullOrEmpty(authorizedEmail))
@@ -143,7 +134,6 @@ public class AuthenticationService : IAuthenticationService
             return Task.FromResult(false);
         }
 
-        // Use authorized email as key, not the input email
         if (!_verificationCodes.ContainsKey(authorizedEmail))
         {
             return Task.FromResult(false);
@@ -160,7 +150,6 @@ public class AuthenticationService : IAuthenticationService
         if (info.Code == code)
         {
             _verificationCodes.Remove(authorizedEmail);
-            // Mark authorized email as verified for password reset
             _verifiedEmails[authorizedEmail] = true;
             _logger.LogInformation("Verification code verified for authorized email: {Email}", authorizedEmail);
             return Task.FromResult(true);

@@ -337,7 +337,13 @@ public class TrafficSignalService : ITrafficSignalService
             }
         }
 
+        var existingHexAddresses = await GetAllHexAddressesAsync();
+        var existingHexSet = existingHexAddresses.Select(h => h.ToUpper().Trim()).ToHashSet();
+        
+        _logger.LogInformation("Loaded {Count} existing HEX addresses from database for duplicate check", existingHexSet.Count);
+
         var imported = 0;
+        var skippedDuplicates = 0;
         foreach (var signal in records)
         {
             try
@@ -353,9 +359,15 @@ public class TrafficSignalService : ITrafficSignalService
                 if (!System.Text.RegularExpressions.Regex.IsMatch(signal.HexAddress, "^[0-9A-F]{4}$"))
                     continue;
                 
-                // Check if HEX already exists
-                if (await HexAddressExistsAsync(signal.HexAddress))
+                // Check if HEX already exists in database
+                if (existingHexSet.Contains(signal.HexAddress))
+                {
+                    skippedDuplicates++;
                     continue;
+                }
+                
+                // Add to set to avoid duplicates within the same import batch
+                existingHexSet.Add(signal.HexAddress);
                 
                 if (string.IsNullOrWhiteSpace(signal.Boro))
                     signal.Boro = "1"; // Default to Manhattan
@@ -378,7 +390,7 @@ public class TrafficSignalService : ITrafficSignalService
             await _context.SaveChangesAsync();
         }
         
-        _logger.LogInformation("Imported {Count} traffic signals from CSV", imported);
+        _logger.LogInformation("Imported {Count} traffic signals from CSV. Skipped {Skipped} duplicates.", imported, skippedDuplicates);
         
         return imported;
     }

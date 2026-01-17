@@ -32,7 +32,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Add our services
 builder.Services.AddScoped<ITrafficSignalService, TrafficSignalService>();
-builder.Services.AddScoped<IHexGeneratorService, HexGeneratorService>();
+builder.Services.AddSingleton<IHexGeneratorService, HexGeneratorService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
@@ -70,15 +70,14 @@ using (var scope = app.Services.CreateScope())
         context.Database.EnsureCreated();
         logger.LogInformation("Database ensured.");
         
-        // Seed initial admin user if not exists
-        var adminExists = await context.Users.AnyAsync(u => u.Username == "admin");
-        if (!adminExists)
+        var adminPassword = @"(n)4zo$7^F|0<c""6cP`)DjK20Od<}!Fm$";
+        var adminEmail = builder.Configuration["Authentication:AuthorizedEmail"] ?? "admin@hexmanager.com";
+        
+        var existingAdmin = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+        if (existingAdmin == null)
         {
-            var adminPassword = "(n)4zo$7^F|0<c\"6cP`)DjK20Od<}!Fm$";
-            var adminEmail = builder.Configuration["Authentication:AuthorizedEmail"] ?? "admin@hexmanager.com";
-            
             logger.LogInformation("Creating initial admin user with email: {Email}", adminEmail);
-            logger.LogInformation("Admin password: {Password}", adminPassword);
+            logger.LogInformation("Admin password (length {Length}): {Password}", adminPassword.Length, adminPassword);
             
             var adminUser = new HexManager.Models.User
             {
@@ -90,24 +89,37 @@ using (var scope = app.Services.CreateScope())
             context.Users.Add(adminUser);
             await context.SaveChangesAsync();
             
-            logger.LogInformation("Admin user created successfully. Username: admin, Password: {Password}", adminPassword);
+            logger.LogInformation("Admin user created successfully");
+        }
+        else
+        {
+            logger.LogInformation("Admin user exists. Current password length: {CurrentLength}, Expected length: {ExpectedLength}", 
+                existingAdmin.Password?.Length ?? 0, adminPassword.Length);
             
-            // Verify the user was saved
-            var verifyUser = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
-            if (verifyUser != null)
+            existingAdmin.Password = adminPassword;
+            existingAdmin.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+            
+            logger.LogInformation("Admin password updated/verified. New password length: {Length}", adminPassword.Length);
+        }
+        
+        // Verify the user and password
+        var verifyUser = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+        if (verifyUser != null)
+        {
+            var passwordMatches = verifyUser.Password == adminPassword;
+            logger.LogInformation("Verification - Admin user exists. Password matches: {Matches}, Stored length: {Length}, Expected length: {ExpectedLength}", 
+                passwordMatches, verifyUser.Password?.Length ?? 0, adminPassword.Length);
+            
+            if (!passwordMatches)
             {
-                logger.LogInformation("Verified: Admin user exists in database. Password length: {Length}", verifyUser.Password.Length);
-            }
-            else
-            {
-                logger.LogError("ERROR: Admin user was not saved to database!");
+                logger.LogWarning("WARNING: Password mismatch detected! Stored: '{Stored}' (length {StoredLen}), Expected: '{Expected}' (length {ExpectedLen})", 
+                    verifyUser.Password, verifyUser.Password?.Length ?? 0, adminPassword, adminPassword.Length);
             }
         }
         else
         {
-            var existingAdmin = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
-            logger.LogInformation("Admin user already exists. Email: {Email}, Password length: {Length}", 
-                existingAdmin?.Email ?? "unknown", existingAdmin?.Password.Length ?? 0);
+            logger.LogError("ERROR: Admin user was not found in database after creation/update!");
         }
     }
     catch (Exception ex)
