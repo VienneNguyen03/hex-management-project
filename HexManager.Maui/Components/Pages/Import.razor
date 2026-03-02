@@ -1,0 +1,499 @@
+@page "/import"
+@using HexManager.Services
+@inject ITrafficSignalService SignalService
+@inject NavigationManager Navigation
+@using Microsoft.Maui.Storage
+
+<PageTitle>Import CSV Data</PageTitle>
+
+<div class="odoo-view">
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success">
+            @successMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    <!-- Full Screen Loading Overlay -->
+    @if (importing)
+    {
+        <div class="fullscreen-loading-overlay">
+            <div class="fullscreen-spinner-container">
+                <div class="fullscreen-spinner"></div>
+                <p class="loading-text">Importing data...</p>
+                @if (importProgress > 0)
+                {
+                    <div class="loading-progress">
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" style="width: @importProgress%"></div>
+                        </div>
+                        <div class="loading-progress-text">@importProgress%</div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="import-content">
+        <div class="import-form-container">
+            <!-- Upload CSV File Section -->
+            <div class="import-section">
+                <h2 class="section-title">Upload CSV File</h2>
+                <p class="section-description">Upload a CSV file from your computer to import traffic signal data.</p>
+                
+                <div class="upload-area" @onclick="PickFileAsync">
+                    <div class="file-label">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">
+                            <div class="upload-title">Click to select CSV file</div>
+                            <div class="upload-subtitle">Using native file picker</div>
+                        </div>
+                    </div>
+                </div>
+
+                @if (selectedFileName != null)
+                {
+                    <div class="file-selected">
+                        <div class="file-info">
+                            <div class="file-name">@selectedFileName</div>
+                        </div>
+                    </div>
+                }
+
+                <div class="action-buttons">
+                    <button class="btn-import" @onclick="ImportFile" disabled="@(importing || selectedFileResult == null)">
+                        @if (importing && importingFilePath == "upload")
+                        {
+                            <span class="spinner"></span>
+                            <span>Importing...</span>
+                        }
+                        else
+                        {
+                            <span>Import CSV</span>
+                        }
+                    </button>
+                    <a href="/" class="btn-cancel-import">Cancel</a>
+                </div>
+
+                @if (importing && importProgress > 0)
+                {
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: @importProgress%"></div>
+                        </div>
+                        <div class="progress-text">@importProgress%</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private FileResult? selectedFileResult;
+    private string? selectedFileName;
+    private bool importing = false;
+    private string? importingFilePath = null; // Track which file is being imported
+    private int importedCount = 0;
+    private int importProgress = 0;
+    private string? successMessage;
+    private string? errorMessage;
+
+
+    private async Task PickFileAsync()
+    {
+        try
+        {
+            var options = new PickOptions
+            {
+                PickerTitle = "Select a CSV file",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.iOS, new[] { "public.comma-separated-values-text", "public.csv", "text/csv" } },
+                    { DevicePlatform.Android, new[] { "text/csv" } },
+                    { DevicePlatform.WinUI, new[] { ".csv" } },
+                    { DevicePlatform.MacCatalyst, new[] { "public.comma-separated-values-text", "public.csv", "text/csv" } }
+                })
+            };
+
+            // Non-blocking approach for Apple platforms to avoid deadlocks
+            var tcs = new TaskCompletionSource<FileResult?>();
+            
+            MainThread.BeginInvokeOnMainThread(async () => 
+            {
+                try 
+                {
+                    var result = await FilePicker.Default.PickAsync(options);
+                    tcs.SetResult(result);
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                }
+            });
+
+            var result = await tcs.Task;
+
+            if (result != null)
+            {
+                selectedFileResult = result;
+                selectedFileName = result.FileName;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error picking file: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ImportFile()
+    {
+        if (selectedFileResult == null) return;
+
+        successMessage = null;
+        errorMessage = null;
+        importing = true;
+        importingFilePath = "upload"; // Mark upload button as importing
+        importProgress = 0;
+        StateHasChanged(); // Force UI update to show spinner
+
+        try
+        {
+            var tempPath = Path.Combine(FileSystem.CacheDirectory, selectedFileResult.FileName);
+            
+            using (var stream = await selectedFileResult.OpenReadAsync())
+            using (var fs = new FileStream(tempPath, FileMode.Create))
+            {
+                await stream.CopyToAsync(fs);
+            }
+            
+            importProgress = 50;
+            importedCount = await SignalService.ImportFromCsvAsync(tempPath);
+            importProgress = 100;
+            
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+            
+            successMessage = $"Successfully imported {importedCount} traffic signals";
+            StateHasChanged();
+            
+            await Task.Delay(1500);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Import failed: {ex.Message}";
+            importing = false;
+            importingFilePath = null;
+            importProgress = 0;
+            StateHasChanged();
+        }
+    }
+
+
+}
+
+<style>
+    .alert {
+        padding: 1rem 2rem;
+        margin: 1rem 2rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        word-break: break-all;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-danger {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .import-content {
+        padding: 2rem;
+        width: 100%;
+    }
+
+    .import-form-container {
+        display: block;
+        max-width: 100%;
+    }
+
+    .import-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        width: 100%;
+    }
+
+    .import-section.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .section-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #714B67;
+        margin: 0 0 0.4rem 0;
+    }
+
+    .section-description {
+        color: #666;
+        margin: 0 0 1.25rem 0;
+        font-size: 0.85rem;
+    }
+
+    .upload-area {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .file-label {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 2rem;
+        border: 2px dashed #d0d0d0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #fafafa;
+    }
+
+    .file-label:hover {
+        border-color: #714B67;
+        background: #f0e6ed;
+    }
+
+    .upload-icon {
+        font-size: 3rem;
+    }
+
+    .upload-text {
+        flex: 1;
+    }
+
+    .upload-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+
+    .upload-subtitle {
+        color: #666;
+        font-size: 0.8rem;
+    }
+
+    .file-selected {
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+    }
+
+    .file-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .file-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 0.85rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .btn-import {
+        background: #714B67;
+        color: white;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        font-size: 0.85rem;
+        min-width: 120px;
+    }
+
+    .btn-import:hover:not(:disabled) {
+        background: #5a3a52;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .btn-import:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-cancel-import {
+        background: white;
+        color: #666;
+        border: 1px solid #ddd;
+        padding: 0.6rem 1.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        transition: all 0.2s;
+        font-size: 0.85rem;
+    }
+
+    .btn-cancel-import:hover {
+        background: #f8f9fa;
+        border-color: #714B67;
+        color: #714B67;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+        vertical-align: middle;
+    }
+
+    .spinner-small {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(113, 75, 103, 0.3);
+        border-top-color: #714B67;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+        vertical-align: middle;
+        margin-right: 0.5rem;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .progress-container {
+        margin-top: 1rem;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 24px;
+        background: #e9ecef;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #714B67 0%, #8B5A8D 100%);
+        transition: width 0.3s ease;
+    }
+
+    .progress-text {
+        text-align: center;
+        margin-top: 0.5rem;
+        font-weight: 600;
+        color: #714B67;
+    }
+
+
+    /* Full Screen Loading Overlay */
+    .fullscreen-loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fullscreen-spinner-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .fullscreen-spinner {
+        width: 60px;
+        height: 60px;
+        border: 5px solid rgba(113, 75, 103, 0.2);
+        border-top-color: #714B67;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #714B67;
+        margin: 0;
+    }
+
+    .loading-progress {
+        width: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .loading-progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .loading-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #714B67 0%, #8B5A8D 100%);
+        transition: width 0.3s ease;
+    }
+
+    .loading-progress-text {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #714B67;
+    }
+</style>

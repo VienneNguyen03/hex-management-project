@@ -4,14 +4,14 @@
     "/Users/minh.nguyenlevien/henry-project/HexManager/HexManager.csproj": {}
   },
   "projects": {
-    "/Users/minh.nguyenlevien/henry-project/HexManager/HexManager.csproj": {
+    "/Users/minh.nguyenlevien/henry-project/HexManager.Shared/HexManager.Shared.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/minh.nguyenlevien/henry-project/HexManager/HexManager.csproj",
-        "projectName": "HexManager",
-        "projectPath": "/Users/minh.nguyenlevien/henry-project/HexManager/HexManager.csproj",
+        "projectUniqueName": "/Users/minh.nguyenlevien/henry-project/HexManager.Shared/HexManager.Shared.csproj",
+        "projectName": "HexManager.Shared",
+        "projectPath": "/Users/minh.nguyenlevien/henry-project/HexManager.Shared/HexManager.Shared.csproj",
         "packagesPath": "/Users/minh.nguyenlevien/.nuget/packages/",
-        "outputPath": "/Users/minh.nguyenlevien/henry-project/HexManager/obj/",
+        "outputPath": "/Users/minh.nguyenlevien/henry-project/HexManager.Shared/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/minh.nguyenlevien/.nuget/NuGet/NuGet.Config"
@@ -46,7 +46,96 @@
           "dependencies": {
             "CsvHelper": {
               "target": "Package",
-              "version": "[30.0.1, )"
+              "version": "[33.1.0, )"
+            },
+            "Microsoft.AspNetCore.Http.Abstractions": {
+              "target": "Package",
+              "version": "[2.2.0, )"
+            },
+            "Microsoft.EntityFrameworkCore.Sqlite": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Abstractions": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Logging.Abstractions": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "SendGrid": {
+              "target": "Package",
+              "version": "[9.29.3, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/8.0.414/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "/Users/minh.nguyenlevien/henry-project/HexManager/HexManager.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/Users/minh.nguyenlevien/henry-project/HexManager/HexManager.csproj",
+        "projectName": "HexManager",
+        "projectPath": "/Users/minh.nguyenlevien/henry-project/HexManager/HexManager.csproj",
+        "packagesPath": "/Users/minh.nguyenlevien/.nuget/packages/",
+        "outputPath": "/Users/minh.nguyenlevien/henry-project/HexManager/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/Users/minh.nguyenlevien/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "/usr/local/share/dotnet/library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "/Users/minh.nguyenlevien/henry-project/HexManager.Shared/HexManager.Shared.csproj": {
+                "projectPath": "/Users/minh.nguyenlevien/henry-project/HexManager.Shared/HexManager.Shared.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "CsvHelper": {
+              "target": "Package",
+              "version": "[33.1.0, )"
             },
             "Microsoft.AspNetCore.Session": {
               "target": "Package",
@@ -61,6 +150,10 @@
             "Microsoft.EntityFrameworkCore.Sqlite": {
               "target": "Package",
               "version": "[8.0.0, )"
+            },
+            "SendGrid": {
+              "target": "Package",
+              "version": "[9.29.3, )"
             }
           },
           "imports": [

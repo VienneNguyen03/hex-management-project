@@ -1,0 +1,320 @@
+@page "/generate-hex"
+@using HexManager.Services
+@using Microsoft.JSInterop
+@inject IHexGeneratorService HexGenerator
+@inject IConfiguration Configuration
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Generate HEX Address</PageTitle>
+
+<div class="odoo-form-view">
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success">
+            @successMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    <div class="odoo-form">
+        <!-- Remote CSV Validation Configuration -->
+        <div class="config-section">
+            <h2 class="section-title">External Master CSV Configuration</h2>
+            <p class="section-description">
+                Link to an external system CSV file (local or network share) to ensure new HEXes don't duplicate existing ones.
+            </p>
+            <div class="form-group">
+                <label class="form-label">External CSV Path</label>
+                <div class="path-input-container">
+                    <InputText @bind-Value="externalCsvPath" 
+                             class="form-input path-input" 
+                             placeholder="e.g., /Volumes/Public/psgm/file.csv" />
+                    <button type="button" class="btn-save-path" @onclick="SaveExternalPath">Save Path</button>
+                </div>
+                <small class="form-help">
+                    On Mac, please mount network shares (IPs) first.
+                </small>
+            </div>
+            
+            @if (!string.IsNullOrEmpty(externalCsvPath))
+            {
+                <div class="file-status">
+                    @if (File.Exists(externalCsvPath))
+                    {
+                        <div class="status-item status-success">
+                            <span class="status-icon">✓</span>
+                            <span>System can read master file: @System.IO.Path.GetFileName(externalCsvPath)</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="status-item status-warning">
+                            <span class="status-icon">⚠</span>
+                            <span>File not found or access denied at this path</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Generate HEX Section -->
+        <div class="generate-section">
+            <h2 class="section-title">Generate Unique HEX</h2>
+            <div class="generate-actions">
+                <button type="button" 
+                        class="btn-generate-hex" 
+                        @onclick="OnGenerateHex" 
+                        disabled="@generating">
+                    @if (generating)
+                    {
+                        <span class="spinner"></span>
+                        <span>Checking duplicates & generating...</span>
+                    }
+                    else
+                    {
+                        <span>Generate Next Available HEX</span>
+                    }
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(generatedHex))
+            {
+                <div class="result-section">
+                    <div class="result-label">New Unique HEX Address:</div>
+                    <div class="result-hex">@generatedHex</div>
+                    <button type="button" class="btn-copy" @onclick="CopyToClipboard">
+                        📋 Copy to Clipboard
+                    </button>
+                </div>
+            }
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private string? externalCsvPath;
+    private string? generatedHex;
+    private bool generating = false;
+    private string? successMessage;
+    private string? errorMessage;
+    private const string ExternalCsvPathKey = "ExternalCsvPath";
+
+    protected override void OnInitialized()
+    {
+        // Use Preferences for persistence in MAUI
+        externalCsvPath = Microsoft.Maui.Storage.Preferences.Default.Get(ExternalCsvPathKey, (string?)null);
+        
+        // Sync with service
+        if (!string.IsNullOrEmpty(externalCsvPath))
+        {
+             _ = HexGenerator.SetExternalCsvPathAsync(externalCsvPath);
+        }
+    }
+
+    private async Task SaveExternalPath()
+    {
+        if (externalCsvPath == null)
+            Microsoft.Maui.Storage.Preferences.Default.Remove(ExternalCsvPathKey);
+        else
+            Microsoft.Maui.Storage.Preferences.Default.Set(ExternalCsvPathKey, externalCsvPath);
+
+        await HexGenerator.SetExternalCsvPathAsync(externalCsvPath);
+        
+        successMessage = "External master path updated and saved.";
+        StateHasChanged();
+        await Task.Delay(2000);
+        successMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task OnGenerateHex()
+    {
+        generating = true;
+        successMessage = null;
+        errorMessage = null;
+        generatedHex = null;
+        StateHasChanged();
+
+        try
+        {
+            generatedHex = await HexGenerator.GenerateNextHexAddressAsync();
+            successMessage = $"Ready to use: {generatedHex}";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            generating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyToClipboard()
+    {
+        if (!string.IsNullOrEmpty(generatedHex))
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", generatedHex);
+                successMessage = "Copied!";
+                StateHasChanged();
+                await Task.Delay(1500);
+                successMessage = null;
+                StateHasChanged();
+            }
+            catch
+            {
+                errorMessage = "Manual copy required.";
+            }
+        }
+    }
+}
+
+<style>
+    .odoo-form-view {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .odoo-form {
+        padding: 2rem;
+        width: 100%;
+    }
+
+    .config-section,
+    .generate-section {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #714B67;
+        margin: 0 0 0.5rem 0;
+    }
+
+    .section-description {
+        color: #666;
+        font-size: 0.85rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .path-input-container {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .form-input {
+        flex: 1;
+        padding: 0.75rem;
+        border: 1px solid #d0d0d0;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .btn-save-path {
+        background: #714B67;
+        color: white;
+        border: none;
+        padding: 0 1.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .file-status {
+        margin-top: 1rem;
+    }
+
+    .status-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+
+    .status-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .status-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+
+    .btn-generate-hex {
+        background: #714B67;
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .result-section {
+        background: #f8f9fa;
+        border: 2px solid #714B67;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        margin-top: 1.5rem;
+    }
+
+    .result-hex {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #714B67;
+        font-family: monospace;
+        letter-spacing: 0.5rem;
+        margin: 1rem 0;
+        padding: 1rem;
+        background: white;
+        border: 2px dashed #714B67;
+    }
+
+    .btn-copy {
+        background: white;
+        border: 1px solid #714B67;
+        color: #714B67;
+        padding: 0.5rem 1.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+
+    .alert {
+        padding: 1rem 1.5rem;
+        margin: 1rem 2rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .alert-success { background: #d4edda; color: #155724; }
+    .alert-danger { background: #f8d7da; color: #721c24; }
+
+    .spinner {
+        width: 18px;
+        height: 18px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @@keyframes spin { to { transform: rotate(360deg); } }
+</style>

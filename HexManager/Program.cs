@@ -6,7 +6,6 @@ using HexManager.Models;
 using HexManager.Services;
 using System.Globalization;
 using Microsoft.AspNetCore.Localization;
-using Microsoft.AspNetCore.DataProtection;
 
 var culture = new CultureInfo("en-US");
 CultureInfo.DefaultThreadCurrentCulture = culture;
@@ -33,60 +32,13 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Add our services
 builder.Services.AddScoped<ITrafficSignalService, TrafficSignalService>();
 builder.Services.AddSingleton<IHexGeneratorService, HexGeneratorService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
-// Add HttpContextAccessor for session access
+// Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
-
-// Add session support for authentication
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
-
-// Configure Data Protection for production (persist keys)
-var dataProtectionKeysPath = Environment.GetEnvironmentVariable("DATA_PROTECTION_KEYS_PATH");
-if (string.IsNullOrEmpty(dataProtectionKeysPath))
-{
-    var railwayVolumePath = "/data/.aspnet/DataProtection-Keys";
-    if (Directory.Exists("/data"))
-    {
-        dataProtectionKeysPath = railwayVolumePath;
-    }
-    else
-    {
-        dataProtectionKeysPath = "/tmp/.aspnet/DataProtection-Keys";
-    }
-}
-
-string? finalKeysPath = null;
-try
-{
-    Directory.CreateDirectory(dataProtectionKeysPath);
-    finalKeysPath = dataProtectionKeysPath;
-    Console.WriteLine($"[Data Protection] Keys will be stored at: {dataProtectionKeysPath}");
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"[Data Protection] WARNING: Could not create directory at {dataProtectionKeysPath}: {ex.Message}");
-    Console.WriteLine("[Data Protection] Using in-memory keys (will reset on container restart)");
-    finalKeysPath = null; // Will use in-memory keys
-}
-
-var dataProtectionBuilder = builder.Services.AddDataProtection()
-    .SetApplicationName("HexManager");
-
-if (!string.IsNullOrEmpty(finalKeysPath))
-{
-    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(finalKeysPath));
-}
 
 var app = builder.Build();
 
-// Ensure database is created and seed initial admin user
+// Ensure database is created
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -97,58 +49,6 @@ using (var scope = app.Services.CreateScope())
         logger.LogInformation("Ensuring database is created...");
         context.Database.EnsureCreated();
         logger.LogInformation("Database ensured.");
-        
-        var adminPassword = @"(n)4zo$7^F|0<c""6cP`)DjK20Od<}!Fm$";
-        var adminEmail = builder.Configuration["Authentication:AuthorizedEmail"] ?? "admin@hexmanager.com";
-        
-        var existingAdmin = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
-        if (existingAdmin == null)
-        {
-            logger.LogInformation("Creating initial admin user with email: {Email}", adminEmail);
-            logger.LogInformation("Admin password (length {Length}): {Password}", adminPassword.Length, adminPassword);
-            
-            var adminUser = new HexManager.Models.User
-            {
-                Username = "admin",
-                Password = adminPassword,
-                Email = adminEmail,
-                CreatedAt = DateTime.UtcNow
-            };
-            context.Users.Add(adminUser);
-            await context.SaveChangesAsync();
-            
-            logger.LogInformation("Admin user created successfully");
-        }
-        else
-        {
-            logger.LogInformation("Admin user exists. Current password length: {CurrentLength}, Expected length: {ExpectedLength}", 
-                existingAdmin.Password?.Length ?? 0, adminPassword.Length);
-            
-            existingAdmin.Password = adminPassword;
-            existingAdmin.UpdatedAt = DateTime.UtcNow;
-            await context.SaveChangesAsync();
-            
-            logger.LogInformation("Admin password updated/verified. New password length: {Length}", adminPassword.Length);
-        }
-        
-        // Verify the user and password
-        var verifyUser = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
-        if (verifyUser != null)
-        {
-            var passwordMatches = verifyUser.Password == adminPassword;
-            logger.LogInformation("Verification - Admin user exists. Password matches: {Matches}, Stored length: {Length}, Expected length: {ExpectedLength}", 
-                passwordMatches, verifyUser.Password?.Length ?? 0, adminPassword.Length);
-            
-            if (!passwordMatches)
-            {
-                logger.LogWarning("WARNING: Password mismatch detected! Stored: '{Stored}' (length {StoredLen}), Expected: '{Expected}' (length {ExpectedLen})", 
-                    verifyUser.Password, verifyUser.Password?.Length ?? 0, adminPassword, adminPassword.Length);
-            }
-        }
-        else
-        {
-            logger.LogError("ERROR: Admin user was not found in database after creation/update!");
-        }
     }
     catch (Exception ex)
     {
@@ -176,9 +76,6 @@ app.UseStaticFiles();
 
 // Use request localization
 app.UseRequestLocalization();
-
-// Use session
-app.UseSession();
 
 app.UseRouting();
 
