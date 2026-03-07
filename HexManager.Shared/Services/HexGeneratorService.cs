@@ -4,6 +4,7 @@ using System.Globalization;
 using CsvHelper;
 using CsvHelper.Configuration;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HexManager.Services;
 
@@ -11,16 +12,18 @@ public class HexGeneratorService : IHexGeneratorService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<HexGeneratorService> _logger;
+    private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _scopeFactory;
     private static readonly Regex HexPattern = new Regex(@"^[0-9A-Fa-f]{4}$", RegexOptions.Compiled);
     
     private readonly HashSet<string> _generatedHexesInSession = new();
 
     private string? _externalCsvPath;
 
-    public HexGeneratorService(IConfiguration configuration, ILogger<HexGeneratorService> logger)
+    public HexGeneratorService(IConfiguration configuration, ILogger<HexGeneratorService> logger, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory scopeFactory)
     {
         _configuration = configuration;
         _logger = logger;
+        _scopeFactory = scopeFactory;
         
         // Initial load from configuration (if any)
         _externalCsvPath = _configuration["CsvSettings:ExternalFilePath"];
@@ -44,8 +47,8 @@ public class HexGeneratorService : IHexGeneratorService
 
     public async Task<string> GenerateNextHexAddressAsync()
     {
-        // Read existing hex addresses from internal CSV (primary source)
-        var existingHexes = await ReadHexAddressesFromCsvAsync();
+        // Read existing hex addresses from internal Database (primary source)
+        var existingHexes = await ReadHexAddressesFromDatabaseAsync();
 
         // Read HEXes from external CSV if configured
         if (!string.IsNullOrWhiteSpace(_externalCsvPath))
@@ -163,8 +166,8 @@ public class HexGeneratorService : IHexGeneratorService
 
     public async Task<List<string>> SuggestAvailableHexAddressesAsync(int count = 5)
     {
-        // Read existing hex addresses from CSV file
-        var existingHexes = await ReadHexAddressesFromCsvAsync();
+        // Read existing hex addresses from database
+        var existingHexes = await ReadHexAddressesFromDatabaseAsync();
 
         // Combine CSV hexes with session-generated hexes
         var allExistingHexes = existingHexes.Union(_generatedHexesInSession).ToList();
@@ -230,79 +233,25 @@ public class HexGeneratorService : IHexGeneratorService
     }
 
     /// <summary>
-    /// Read all HEX addresses from the configured CSV file
+    /// Read all HEX addresses from the local database
     /// </summary>
-    private async Task<List<string>> ReadHexAddressesFromCsvAsync()
+    private async Task<List<string>> ReadHexAddressesFromDatabaseAsync()
     {
-        var csvFilePath = _configuration["CsvSettings:SourceFilePath"];
-        
-        if (string.IsNullOrWhiteSpace(csvFilePath))
-        {
-            _logger.LogWarning("CSV file path not configured. Returning empty list.");
-            return new List<string>();
-        }
-
-        // Normalize path separators for cross-platform compatibility
-        csvFilePath = csvFilePath.Replace('\\', Path.DirectorySeparatorChar);
-
-        if (!File.Exists(csvFilePath))
-        {
-            _logger.LogWarning("CSV file not found at path: {FilePath}. Returning empty list.", csvFilePath);
-            return new List<string>();
-        }
-
-        var hexAddresses = new List<string>();
-
         try
         {
-            await Task.Run(() =>
-            {
-                using var reader = new StreamReader(csvFilePath);
-                using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
-                {
-                    HeaderValidated = null,
-                    MissingFieldFound = null
-                });
-
-                csv.Read();
-                csv.ReadHeader();
-
-                while (csv.Read())
-                {
-                    try
-                    {
-                        var hexValue = csv.GetField("ATCS_CABINET_ADDRESS_HEX") 
-                            ?? csv.GetField("ASTC_CABINET_ADDRESS_HEX");
-                        
-                        if (!string.IsNullOrWhiteSpace(hexValue))
-                        {
-                            // Normalize: trim and uppercase
-                            hexValue = hexValue.Trim().ToUpper();
-                            
-                            // Only add valid hex addresses
-                            if (IsValidHexAddress(hexValue))
-                            {
-                                hexAddresses.Add(hexValue);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Skip invalid rows
-                        _logger.LogDebug("Skipped invalid row while reading CSV: {Error}", ex.Message);
-                    }
-                }
-            });
-
-            _logger.LogInformation("Read {Count} HEX addresses from CSV file: {FilePath}", hexAddresses.Count, csvFilePath);
+            using var scope = _scopeFactory.CreateScope();
+            var trafficSignalService = scope.ServiceProvider.GetRequiredService<ITrafficSignalService>();
+            
+            var hexAddresses = await trafficSignalService.GetAllHexAddressesAsync();
+            var hexList = hexAddresses.ToList();
+            _logger.LogInformation("Read {Count} HEX addresses from database", hexList.Count);
+            return hexList;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error reading CSV file from path: {FilePath}", csvFilePath);
-            throw new InvalidOperationException($"Failed to read CSV file: {ex.Message}", ex);
+            _logger.LogError(ex, "Error reading HEX addresses from database");
+            return new List<string>(); // Return empty list to degrade gracefully if DB fails
         }
-
-        return hexAddresses;
     }
 
     /// <summary>

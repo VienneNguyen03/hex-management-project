@@ -13,6 +13,7 @@ namespace HexManager.Tests
     {
         private readonly string _tempCsvPath;
         private readonly HexGeneratorService _service;
+        private readonly Mock<ITrafficSignalService> _trafficSignalServiceMock;
 
         public HexGeneratorTests()
         {
@@ -35,7 +36,26 @@ namespace HexManager.Tests
 
             var logger = new NullLogger<HexGeneratorService>();
 
-            _service = new HexGeneratorService(configMock.Object, logger);
+            // Mock ITrafficSignalService
+            _trafficSignalServiceMock = new Mock<ITrafficSignalService>();
+            _trafficSignalServiceMock.Setup(s => s.GetAllHexAddressesAsync())
+                .ReturnsAsync(new System.Collections.Generic.List<string>()); // Empty DB by default
+
+            // Mock IServiceScopeFactory
+            var serviceProviderMock = new Mock<IServiceProvider>();
+            serviceProviderMock
+                .Setup(x => x.GetService(typeof(ITrafficSignalService)))
+                .Returns(_trafficSignalServiceMock.Object);
+
+            var serviceScopeMock = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScope>();
+            serviceScopeMock.Setup(x => x.ServiceProvider).Returns(serviceProviderMock.Object);
+
+            var serviceScopeFactoryMock = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
+            serviceScopeFactoryMock
+                .Setup(x => x.CreateScope())
+                .Returns(serviceScopeMock.Object);
+
+            _service = new HexGeneratorService(configMock.Object, logger, serviceScopeFactoryMock.Object);
         }
 
         [Fact]
@@ -86,7 +106,26 @@ namespace HexManager.Tests
             configMock.Setup(c => c["CsvSettings:SourceFilePath"]).Returns("");
             configMock.Setup(c => c["CsvSettings:ExternalFilePath"]).Returns("");
 
-            var emptyService = new HexGeneratorService(configMock.Object, new NullLogger<HexGeneratorService>());
+            // Mock ITrafficSignalService for empty scenario
+            var trafficSignalServiceMock = new Mock<ITrafficSignalService>();
+            trafficSignalServiceMock.Setup(s => s.GetAllHexAddressesAsync())
+                .ReturnsAsync(new System.Collections.Generic.List<string>());
+
+            // Mock IServiceScopeFactory
+            var serviceProviderMock = new Mock<IServiceProvider>();
+            serviceProviderMock
+                .Setup(x => x.GetService(typeof(ITrafficSignalService)))
+                .Returns(trafficSignalServiceMock.Object);
+
+            var serviceScopeMock = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScope>();
+            serviceScopeMock.Setup(x => x.ServiceProvider).Returns(serviceProviderMock.Object);
+
+            var serviceScopeFactoryMock = new Mock<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
+            serviceScopeFactoryMock
+                .Setup(x => x.CreateScope())
+                .Returns(serviceScopeMock.Object);
+
+            var emptyService = new HexGeneratorService(configMock.Object, new NullLogger<HexGeneratorService>(), serviceScopeFactoryMock.Object);
             
             // Should return the very first hex "0001"
             var firstHex = await emptyService.GenerateNextHexAddressAsync();
