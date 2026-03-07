@@ -38,9 +38,6 @@
                              placeholder="e.g., /Volumes/Public/psgm/file.csv" />
                     <button type="button" class="btn-save-path" @onclick="SaveExternalPath">Save Path</button>
                 </div>
-                <small class="form-help">
-                    On Mac, please mount network shares (IPs) first.
-                </small>
             </div>
             
             @if (!string.IsNullOrEmpty(externalCsvPath))
@@ -165,16 +162,16 @@
         {
             try
             {
-                await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", generatedHex);
-                successMessage = "Copied!";
+                await Microsoft.Maui.ApplicationModel.DataTransfer.Clipboard.Default.SetTextAsync(generatedHex);
+                successMessage = "Copied to clipboard!";
                 StateHasChanged();
                 await Task.Delay(1500);
                 successMessage = null;
                 StateHasChanged();
             }
-            catch
+            catch (Exception ex)
             {
-                errorMessage = "Manual copy required.";
+                errorMessage = $"Failed to copy: {ex.Message}";
             }
         }
     }
