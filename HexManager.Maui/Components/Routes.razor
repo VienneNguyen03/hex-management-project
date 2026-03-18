@@ -1,6 +1,15 @@
-﻿<Router AppAssembly="@typeof(MauiProgram).Assembly">
+<Router AppAssembly="@typeof(MauiProgram).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
+        <RouteView RouteData="@routeData" DefaultLayout="@GetLayout(routeData)" />
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    private Type? GetLayout(RouteData routeData)
+    {
+        var path = routeData.PageType?.FullName ?? "";
+        var isAuthPage = path.Contains("Login") || path.Contains("ForgotPassword");
+        return isAuthPage ? null : typeof(Layout.MainLayout);
+    }
+}

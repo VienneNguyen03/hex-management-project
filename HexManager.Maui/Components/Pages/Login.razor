@@ -1,0 +1,167 @@
+@page "/login"
+@inject NavigationManager Navigation
+
+<div class="login-wrapper">
+    <div class="login-container">
+        <div class="login-card">
+            <!-- Logo area -->
+            <div class="logo-container">
+                <img src="logo_hex.png" alt="HEX Manager Logo" class="logo-img" />
+                <h4 class="mt-3 mb-1 text-white fw-bold">Welcome Back</h4>
+                <p class="text-white-50 small mb-0">Sign in to continue to HEX Manager</p>
+            </div>
+
+            <!-- Form area -->
+            <div class="form-container">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger py-2 small" role="alert">
+                        @errorMessage
+                    </div>
+                }
+
+                <EditForm Model="this" OnValidSubmit="HandleLogin">
+                    <div class="mb-4 text-start">
+                        <label class="form-label text-muted small fw-bold mb-1">Email Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0">
+                                ✉️
+                            </span>
+                            <InputText @bind-Value="email" class="form-control bg-light border-start-0 ps-0" placeholder="admin@hexmanagement.com" type="email" required />
+                        </div>
+                    </div>
+
+                    <div class="mb-4 text-start">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label text-muted small fw-bold mb-0">Password</label>
+                        </div>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0">
+                                🔒
+                            </span>
+                            <InputText @bind-Value="password" class="form-control bg-light border-start-0 ps-0" placeholder="••••••••" type="password" required />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 mt-2 fw-bold login-btn">
+                        Sign In
+                    </button>
+                    
+                    <div class="text-center mt-4">
+                        <p class="text-muted small mb-0">&copy; @DateTime.Now.Year HEX Manager. All rights reserved.</p>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string errorMessage = "";
+
+    private void HandleLogin()
+    {
+        errorMessage = "";
+
+        if (email == "admin@hexmanagement.com" && password == "Baolong@2015")
+        {
+            // Login successful
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            // Login failed
+            errorMessage = "Invalid email or password. Please try again.";
+        }
+    }
+}
+
+<style>
+    /* Scope styles to this component to not affect global styles */
+    .login-wrapper {
+        min-height: 100vh;
+        width: 100vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #714B67 0%, #8B5A8D 100%);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        margin: 0;
+        padding: 1rem;
+        box-sizing: border-box;
+    }
+
+    .login-container {
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .login-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+    }
+
+    .logo-container {
+        padding: 2.5rem 2rem 1.5rem;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.15);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .logo-img {
+        max-width: 160px;
+        height: auto;
+        /* Using the brightness invert filter conceptually as seen in MainLayout to make it white if needed, 
+           but usually the logo has its own colors. If it needs to be white on purple: */
+        filter: brightness(0) invert(1);
+    }
+
+    .form-container {
+        padding: 2.5rem 2.5rem 2rem;
+    }
+
+    .login-btn {
+        background: linear-gradient(135deg, #714B67 0%, #8B5A8D 100%);
+        border: none;
+        transition: all 0.3s ease;
+        border-radius: 8px;
+    }
+
+    .login-btn:hover, .login-btn:focus {
+        background: linear-gradient(135deg, #5c3c53 0%, #724974 100%);
+        box-shadow: 0 4px 12px rgba(113, 75, 103, 0.3);
+        transform: translateY(-1px);
+    }
+
+    .login-btn:active {
+        transform: translateY(1px);
+    }
+    
+    .input-group-text, .form-control {
+        border-radius: 8px;
+    }
+    
+    .input-group-text {
+        border-right: none;
+        color: #714B67;
+    }
+    
+    .form-control:focus {
+        border-color: #ced4da;
+        box-shadow: none;
+    }
+    
+    .input-group:focus-within {
+        box-shadow: 0 0 0 0.25rem rgba(113, 75, 103, 0.25);
+        border-radius: 8px;
+    }
+    
+    .input-group:focus-within .input-group-text,
+    .input-group:focus-within .form-control {
+        border-color: #8B5A8D;
+    }
+</style>
