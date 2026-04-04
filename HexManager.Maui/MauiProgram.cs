@@ -1,7 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using HexManager.Data;
 using HexManager.Services;
+using HexManager.Maui.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -35,6 +36,7 @@ public static class MauiProgram
 		// Add our shared services
 		builder.Services.AddScoped<ITrafficSignalService, TrafficSignalService>();
 		builder.Services.AddSingleton<IHexGeneratorService, HexGeneratorService>();
+		builder.Services.AddSingleton<IAuthService, MauiAuthService>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

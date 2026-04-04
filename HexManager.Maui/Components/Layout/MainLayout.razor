@@ -1,5 +1,7 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
+@inject IAuthService AuthService
+@using HexManager.Services;
 
 <PageTitle>HEX Manager</PageTitle>
 
@@ -28,6 +30,15 @@
         </div>
         
         <div class="odoo-header-right">
+            @if (AuthService.IsAuthenticated)
+            {
+                <span class="user-info">
+                   @AuthService.UserEmail
+                </span>
+                <button class="btn-logout" @onclick="Logout">
+                    Log out
+                </button>
+            }
         </div>
     </header>
 
@@ -40,6 +51,19 @@
 </div>
 
 @code {
+    protected override void OnInitialized()
+    {
+        if (!AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private void Logout()
+    {
+        AuthService.Logout();
+        Navigation.NavigateTo("/login");
+    }
 }
 
 <style>

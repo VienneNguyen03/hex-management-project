@@ -71,10 +71,10 @@
             </div>
 
             <div class="filter-item">
-                <label>Controller Type</label>
-                <select class="filter-select" @bind="filterOptions.ControllerType" @bind:after="ApplyFilters">
-                    <option value="">All Types</option>
-                    @foreach (var type in controllerTypes)
+                <label>Signal Type</label>
+                <select class="filter-select" @bind="filterOptions.SignalType" @bind:after="ApplyFilters">
+                    <option value="">All Signal Types</option>
+                    @foreach (var type in signalTypes)
                     {
                         <option value="@type">@type</option>
                     }
@@ -82,13 +82,14 @@
             </div>
 
             <div class="filter-item">
-                <label>Equipment Type</label>
-                <select class="filter-select" @bind="filterOptions.EquipmentType" @bind:after="ApplyFilters">
-                    <option value="">All Equipment</option>
-                    @foreach (var type in equipmentTypes)
-                    {
-                        <option value="@type">@type</option>
-                    }
+                <label>Borough</label>
+                <select class="filter-select" @bind="filterOptions.Boro" @bind:after="ApplyFilters">
+                    <option value="">All Boroughs</option>
+                    <option value="1">Manhattan</option>
+                    <option value="2">Bronx</option>
+                    <option value="3">Brooklyn</option>
+                    <option value="4">Queens</option>
+                    <option value="5">Staten Island</option>
                 </select>
             </div>
 
@@ -166,16 +167,23 @@
                                 <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
                             }
                         </th>
-                        <th @onclick='() => SortBy("ControllerType")' class="sortable">
-                            Controller Type
-                            @if (filterOptions.SortBy == "ControllerType")
+                        <th @onclick='() => SortBy("Longitude")' class="sortable">
+                            Longitude
+                            @if (filterOptions.SortBy == "Longitude")
                             {
                                 <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
                             }
                         </th>
-                        <th @onclick='() => SortBy("EquipmentType")' class="sortable">
-                            Equipment Type
-                            @if (filterOptions.SortBy == "EquipmentType")
+                        <th @onclick='() => SortBy("Latitude")' class="sortable">
+                            Latitude
+                            @if (filterOptions.SortBy == "Latitude")
+                            {
+                                <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
+                            }
+                        </th>
+                        <th @onclick='() => SortBy("SignalType")' class="sortable">
+                            Signal Type
+                            @if (filterOptions.SortBy == "SignalType")
                             {
                                 <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
                             }
@@ -205,8 +213,9 @@
                                 </td>
                                 <td>@signal.StreetName1</td>
                                 <td>@signal.StreetName2</td>
-                                <td>@signal.ControllerType</td>
-                                <td>@signal.EquipmentType</td>
+                                <td>@signal.Longitude</td>
+                                <td>@signal.Latitude</td>
+                                <td>@signal.SignalType</td>
                                 <td class="actions-cell">
                                     <a href="/signals/edit/@signal.Id" class="btn-action edit" title="Edit">
                                         Edit
@@ -297,8 +306,7 @@
     private string? successMessage;
     private string? errorMessage;
     
-    private List<string> controllerTypes = new();
-    private List<string> equipmentTypes = new();
+    private List<string> signalTypes = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -309,15 +317,8 @@
     private async Task LoadDistinctValues()
     {
         var allSignals = await SignalService.GetAllAsync();
-        controllerTypes = allSignals
-            .Select(s => s.ControllerType)
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Distinct()
-            .OrderBy(t => t)
-            .ToList();
-        
-        equipmentTypes = allSignals
-            .Select(s => s.EquipmentType)
+        signalTypes = allSignals
+            .Select(s => s.SignalType)
             .Where(t => !string.IsNullOrWhiteSpace(t))
             .Distinct()
             .OrderBy(t => t)
@@ -384,8 +385,7 @@
     {
         return !string.IsNullOrWhiteSpace(filterOptions.SearchTerm) ||
                !string.IsNullOrWhiteSpace(filterOptions.Boro) ||
-               !string.IsNullOrWhiteSpace(filterOptions.ControllerType) ||
-               !string.IsNullOrWhiteSpace(filterOptions.EquipmentType);
+               !string.IsNullOrWhiteSpace(filterOptions.SignalType);
     }
 
     private void ToggleSelection(int id)

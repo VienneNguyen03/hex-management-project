@@ -1,58 +1,35 @@
 @page "/login"
 @inject NavigationManager Navigation
+@inject IAuthService AuthService
+@using HexManager.Services;
 
 <div class="login-wrapper">
-    <div class="login-container">
-        <div class="login-card">
-            <!-- Logo area -->
-            <div class="logo-container">
-                <img src="logo_hex.png" alt="HEX Manager Logo" class="logo-img" />
-                <h4 class="mt-3 mb-1 text-white fw-bold">Welcome Back</h4>
-                <p class="text-white-50 small mb-0">Sign in to continue to HEX Manager</p>
+    <div class="login-card">
+        <h2 class="login-title">Sign In</h2>
+        <p class="login-subtitle">Enter your credentials to access your account</p>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger py-2 small" role="alert">
+                @errorMessage
+            </div>
+        }
+
+        <EditForm Model="this" OnValidSubmit="HandleLogin">
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <InputText @bind-Value="email" class="form-control mb-3" placeholder="admin@example.com" type="email" required />
             </div>
 
-            <!-- Form area -->
-            <div class="form-container">
-                @if (!string.IsNullOrEmpty(errorMessage))
-                {
-                    <div class="alert alert-danger py-2 small" role="alert">
-                        @errorMessage
-                    </div>
-                }
-
-                <EditForm Model="this" OnValidSubmit="HandleLogin">
-                    <div class="mb-4 text-start">
-                        <label class="form-label text-muted small fw-bold mb-1">Email Address</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0">
-                                ✉️
-                            </span>
-                            <InputText @bind-Value="email" class="form-control bg-light border-start-0 ps-0" placeholder="admin@hexmanagement.com" type="email" required />
-                        </div>
-                    </div>
-
-                    <div class="mb-4 text-start">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="form-label text-muted small fw-bold mb-0">Password</label>
-                        </div>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0">
-                                🔒
-                            </span>
-                            <InputText @bind-Value="password" class="form-control bg-light border-start-0 ps-0" placeholder="••••••••" type="password" required />
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100 py-2 mt-2 fw-bold login-btn">
-                        Sign In
-                    </button>
-                    
-                    <div class="text-center mt-4">
-                        <p class="text-muted small mb-0">&copy; @DateTime.Now.Year HEX Manager. All rights reserved.</p>
-                    </div>
-                </EditForm>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <InputText @bind-Value="password" class="form-control" placeholder="••••••••••••" type="password" required />
             </div>
-        </div>
+
+            <button type="submit" class="btn btn-signin w-100 mt-4">
+                Sign In
+            </button>
+        </EditForm>
     </div>
 </div>
 
@@ -65,103 +42,131 @@
     {
         errorMessage = "";
 
-        if (email == "admin@hexmanagement.com" && password == "Baolong@2015")
+        // Supporting admin@example.com and the previous test account
+        bool isValidEmail = email == "admin@example.com" || email == "admin@hexmanagement.com";
+        bool isValidPassword = password == "Baolong@2015" || password == "admin123";
+
+        if (isValidEmail && isValidPassword)
         {
-            // Login successful
+            AuthService.Login(email);
             Navigation.NavigateTo("/");
         }
         else
         {
-            // Login failed
             errorMessage = "Invalid email or password. Please try again.";
         }
     }
 }
 
 <style>
-    /* Scope styles to this component to not affect global styles */
     .login-wrapper {
         min-height: 100vh;
         width: 100vw;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #714B67 0%, #8B5A8D 100%);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background-color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         margin: 0;
-        padding: 1rem;
-        box-sizing: border-box;
-    }
-
-    .login-container {
-        width: 100%;
-        max-width: 420px;
+        padding: 0;
     }
 
     .login-card {
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        overflow: hidden;
-    }
-
-    .logo-container {
-        padding: 2.5rem 2rem 1.5rem;
+        width: 100%;
+        max-width: 440px;
+        padding: 40px;
+        background: #ffffff;
+        border: 1px solid #eeeeee;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         text-align: center;
-        background: rgba(0, 0, 0, 0.15);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .logo-img {
-        max-width: 160px;
-        height: auto;
-        /* Using the brightness invert filter conceptually as seen in MainLayout to make it white if needed, 
-           but usually the logo has its own colors. If it needs to be white on purple: */
-        filter: brightness(0) invert(1);
+    .login-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 8px;
     }
 
-    .form-container {
-        padding: 2.5rem 2.5rem 2rem;
+    .login-subtitle {
+        font-size: 14px;
+        color: #666666;
+        margin-bottom: 30px;
     }
 
-    .login-btn {
-        background: linear-gradient(135deg, #714B67 0%, #8B5A8D 100%);
+    .form-group {
+        text-align: left;
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #333333;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 14px;
+        background-color: #e8f0fe;
         border: none;
-        transition: all 0.3s ease;
-        border-radius: 8px;
+        border-radius: 6px;
+        box-sizing: border-box;
+        color: #333333;
     }
 
-    .login-btn:hover, .login-btn:focus {
-        background: linear-gradient(135deg, #5c3c53 0%, #724974 100%);
-        box-shadow: 0 4px 12px rgba(113, 75, 103, 0.3);
-        transform: translateY(-1px);
-    }
-
-    .login-btn:active {
-        transform: translateY(1px);
-    }
-    
-    .input-group-text, .form-control {
-        border-radius: 8px;
-    }
-    
-    .input-group-text {
-        border-right: none;
-        color: #714B67;
-    }
-    
     .form-control:focus {
-        border-color: #ced4da;
-        box-shadow: none;
+        outline: 1px solid #714B67;
+        background-color: #eef4ff;
     }
-    
-    .input-group:focus-within {
-        box-shadow: 0 0 0 0.25rem rgba(113, 75, 103, 0.25);
-        border-radius: 8px;
+
+    .password-wrapper {
+        position: relative;
     }
-    
-    .input-group:focus-within .input-group-text,
-    .input-group:focus-within .form-control {
-        border-color: #8B5A8D;
+
+    .password-toggle {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999999;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+
+    .btn-signin {
+        background-color: #714B67;
+        color: #ffffff;
+        border: none;
+        padding: 12px;
+        font-size: 15px;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .btn-signin:hover {
+        background-color: #5c3c53;
+    }
+
+    .btn-signin:active {
+        background-color: #4a3143;
+    }
+
+    .alert {
+        padding: 10px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        font-size: 13px;
     }
 </style>
+

@@ -3429,33 +3429,32 @@
     ]
   },
   "packageFolders": {
-    "/Users/minh.nguyenlevien/.nuget/packages/": {}
+    "C:\\Users\\ivan.nguyen\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/minh.nguyenlevien/henry-project/HexManager/HexManager.csproj",
+      "projectUniqueName": "C:\\hex-management-project\\HexManager\\HexManager.csproj",
       "projectName": "HexManager",
-      "projectPath": "/Users/minh.nguyenlevien/henry-project/HexManager/HexManager.csproj",
-      "packagesPath": "/Users/minh.nguyenlevien/.nuget/packages/",
-      "outputPath": "/Users/minh.nguyenlevien/henry-project/HexManager/obj/",
+      "projectPath": "C:\\hex-management-project\\HexManager\\HexManager.csproj",
+      "packagesPath": "C:\\Users\\ivan.nguyen\\.nuget\\packages\\",
+      "outputPath": "C:\\hex-management-project\\HexManager\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/Users/minh.nguyenlevien/.nuget/NuGet/NuGet.Config"
+        "C:\\Users\\ivan.nguyen\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
-        "/usr/local/share/dotnet/library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "/Users/minh.nguyenlevien/henry-project/HexManager.Shared/HexManager.Shared.csproj": {
-              "projectPath": "/Users/minh.nguyenlevien/henry-project/HexManager.Shared/HexManager.Shared.csproj"
+            "C:\\hex-management-project\\HexManager.Shared\\HexManager.Shared.csproj": {
+              "projectPath": "C:\\hex-management-project\\HexManager.Shared\\HexManager.Shared.csproj"
             }
           }
         }
@@ -3469,7 +3468,8 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      }
+      },
+      "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
       "net8.0": {
@@ -3509,6 +3509,24 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[8.0.25, 8.0.25]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Host.win-x64",
+            "version": "[8.0.25, 8.0.25]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Ref",
+            "version": "[8.0.25, 8.0.25]"
+          },
+          {
+            "name": "Microsoft.WindowsDesktop.App.Ref",
+            "version": "[8.0.25, 8.0.25]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.AspNetCore.App": {
             "privateAssets": "none"
@@ -3517,7 +3535,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/8.0.414/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.312/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

@@ -99,6 +99,9 @@ public class TrafficSignalService : ITrafficSignalService
             "streetname2" => descending ? query.OrderByDescending(s => s.StreetName2) : query.OrderBy(s => s.StreetName2),
             "controllertype" => descending ? query.OrderByDescending(s => s.ControllerType) : query.OrderBy(s => s.ControllerType),
             "controllernumber" => descending ? query.OrderByDescending(s => s.ControllerNumber) : query.OrderBy(s => s.ControllerNumber),
+            "signaltype" => descending ? query.OrderByDescending(s => s.SignalType) : query.OrderBy(s => s.SignalType),
+            "longitude" => descending ? query.OrderByDescending(s => s.Longitude) : query.OrderBy(s => s.Longitude),
+            "latitude" => descending ? query.OrderByDescending(s => s.Latitude) : query.OrderBy(s => s.Latitude),
             _ => query.OrderBy(s => s.HexAddress)
         };
 
