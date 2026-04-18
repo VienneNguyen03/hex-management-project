@@ -308,6 +308,85 @@ public class TrafficSignalService : ITrafficSignalService
             .ToListAsync();
     }
 
+    public async Task<(double Latitude, double Longitude)?> GetCoordinatesByStreetNamesAsync(string street1, string street2)
+    {
+        if (string.IsNullOrWhiteSpace(street1) || string.IsNullOrWhiteSpace(street2)) return null;
+
+        var s1 = street1.ToLower().Trim();
+        var s2 = street2.ToLower().Trim();
+
+        var match = await _context.TrafficSignals
+            .Where(s => s.Latitude.HasValue && s.Longitude.HasValue &&
+                ((s.StreetName1.ToLower() == s1 && s.StreetName2.ToLower() == s2) ||
+                 (s.StreetName1.ToLower() == s2 && s.StreetName2.ToLower() == s1)))
+            .FirstOrDefaultAsync();
+
+        if (match != null)
+        {
+            return ((double)match.Latitude!.Value, (double)match.Longitude!.Value);
+        }
+        
+        return null;
+    }
+
+    public async Task<List<NearbySignal>> FindNearbySignalsAsync(double latitude, double longitude, double radiusKm = 20.0)
+    {
+        // 1 degree is approx 111.32 km.
+        var latThreshold = (decimal)(radiusKm / 111.32);
+        // Longitude distance varies with latitude, cos(lat) factor
+        var lonThreshold = (decimal)(radiusKm / (111.32 * Math.Cos(ToRadians(latitude))));
+
+        var minLat = (decimal)latitude - latThreshold;
+        var maxLat = (decimal)latitude + latThreshold;
+        var minLon = (decimal)longitude - lonThreshold;
+        var maxLon = (decimal)longitude + lonThreshold;
+
+        // Fetch candidates efficiently
+        var candidates = await _context.TrafficSignals
+            .Where(s => s.Latitude.HasValue && s.Longitude.HasValue &&
+                        s.Latitude.Value >= minLat && s.Latitude.Value <= maxLat &&
+                        s.Longitude.Value >= minLon && s.Longitude.Value <= maxLon)
+            .ToListAsync();
+
+        var nearbySignals = new List<NearbySignal>();
+
+        foreach (var signal in candidates)
+        {
+            var distance = CalculateHaversineDistance(
+                latitude, longitude,
+                (double)signal.Latitude!.Value, (double)signal.Longitude!.Value);
+
+            if (distance <= radiusKm)
+            {
+                nearbySignals.Add(new NearbySignal
+                {
+                    Signal = signal,
+                    DistanceKm = Math.Round(distance, 2)
+                });
+            }
+        }
+
+        return nearbySignals.OrderBy(n => n.DistanceKm).ToList();
+    }
+
+    private static double CalculateHaversineDistance(double lat1, double lon1, double lat2, double lon2)
+    {
+        var R = 6371.0; 
+        var dLat = ToRadians(lat2 - lat1);
+        var dLon = ToRadians(lon2 - lon1);
+        var a =
+            Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+            Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+            Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return R * c;
+    }
+
+    private static double ToRadians(double angle)
+    {
+        return Math.PI * angle / 180.0;
+    }
+
     public async Task<int> ImportFromCsvAsync(string filePath)
     {
         if (!File.Exists(filePath))

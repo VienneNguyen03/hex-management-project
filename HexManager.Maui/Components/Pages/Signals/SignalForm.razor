@@ -76,8 +76,8 @@
             <h2 class="section-title">Basic Information</h2>
             <div class="form-grid two-columns">
                 <div class="form-group">
-                    <label class="form-label">Police Code</label>
-                    <InputText @bind-Value="signal.PoliceCode" class="form-input" placeholder="Enter police code" />
+                    <label class="form-label">Area Number</label>
+                    <InputText @bind-Value="signal.AreaNumber" class="form-input" placeholder="Enter area number" />
                 </div>
                 
                 <div class="form-group">
@@ -108,10 +108,7 @@
                     <InputText @bind-Value="signal.SegmentId" class="form-input" placeholder="Enter segment ID" />
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">UID</label>
-                    <InputText @bind-Value="signal.UID" class="form-input" placeholder="Enter UID" />
-                </div>
+
             </div>
         </div>
 
@@ -124,10 +121,7 @@
                     <InputText @bind-Value="signal.SequenceNumber" class="form-input" placeholder="Enter sequence number" />
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label">Area Number</label>
-                    <InputText @bind-Value="signal.AreaNumber" class="form-input" placeholder="Enter area number" />
-                </div>
+
 
                 <div class="form-group">
                     <label class="form-label">Machine Number</label>
@@ -217,10 +211,7 @@
         <div class="form-section">
             <h2 class="section-title">Controller Information</h2>
             <div class="form-grid two-columns">
-                <div class="form-group">
-                    <label class="form-label">Controller Type</label>
-                    <InputText @bind-Value="signal.ControllerType" class="form-input" placeholder="Enter controller type" />
-                </div>
+
                 
                 <div class="form-group">
                     <label class="form-label">Controller Number</label>
@@ -237,10 +228,7 @@
                     <InputText @bind-Value="signal.SignalType" class="form-input" placeholder="Enter signal type" />
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Equipment Type</label>
-                    <InputText @bind-Value="signal.EquipmentType" class="form-input" placeholder="Enter equipment type" />
-                </div>
+
 
                 <div class="form-group">
                     <label class="form-label">Pole Type</label>
@@ -333,7 +321,16 @@
 
         <!-- Geographic Information Section -->
         <div class="form-section">
-            <h2 class="section-title">Geographic Information</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 2px solid #f0e6ed; padding-bottom: 0.4rem;">
+                <h2 class="section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">Geographic Information</h2>
+                <button type="button" class="btn-generate" @onclick="FindNearbySignals" disabled="@isSearchingNearby">
+                    @if (isSearchingNearby)
+                    {
+                        <span class="spinner" style="border-top-color: #555; margin-right: 5px; border-width: 2px;"></span>
+                    }
+                    Find nearby locations
+                </button>
+            </div>
             <div class="form-grid two-columns">
                 <div class="form-group">
                     <label class="form-label">Latitude</label>
@@ -691,6 +688,81 @@
     </EditForm>
 </div>
 
+@if (showNearbyModal)
+{
+    <div class="custom-modal-backdrop" @onclick="CloseNearbyModal"></div>
+    <div class="custom-modal">
+        <div class="custom-modal-content">
+            <div class="custom-modal-header">
+                <h3 style="color: #714B67; font-weight: 600;">Nearby Locations</h3>
+                <button type="button" class="btn-close-modal" @onclick="CloseNearbyModal">×</button>
+            </div>
+            <div class="custom-modal-body">
+                <div class="odoo-filters" style="margin-bottom: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; border: 1px solid #e0e0e0;">
+                    <div class="filter-group" style="display: flex; gap: 1rem; align-items: flex-end;">
+                        <div class="filter-item" style="flex: 1;">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 500; color: #555; margin-bottom: 0.3rem;">Search</label>
+                            <input type="text" 
+                                   class="form-input" 
+                                   placeholder="HEX, Area Number, Street..." 
+                                   @bind="nearbySearchTerm"
+                                   @bind:event="oninput" />
+                        </div>
+                        <div class="filter-item" style="width: 150px;">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 500; color: #555; margin-bottom: 0.3rem;">Radius (km)</label>
+                            <select class="form-select" @bind="nearbyRadiusKm" @bind:after="FindNearbySignals">
+                                <option value="5.0">5 km</option>
+                                <option value="10.0">10 km</option>
+                                <option value="20.0">20 km</option>
+                                <option value="50.0">50 km</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                @if (filteredNearbySignals.Any())
+                {
+                    <table class="nearby-table">
+                        <thead>
+                            <tr>
+                                <th>HEX</th>
+                                <th>Area Number</th>
+                                <th>Street 1 & 2</th>
+                                <th>Distance (km)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ns in filteredNearbySignals)
+                            {
+                                <tr style="cursor: pointer;" @onclick="() => AutoFillFromNearby(ns)" title="Click to auto-fill Area Number">
+                                    <td><a href="javascript:void(0)" class="action-link" style="color: #714B67; font-weight: 500; text-decoration: none;">@ns.Signal.HexAddress</a></td>
+                                    <td>@ns.Signal.AreaNumber</td>
+                                    <td>@ns.Signal.StreetName1 / @ns.Signal.StreetName2</td>
+                                    <td>@ns.DistanceKm</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p>No locations found within @nearbyRadiusKm km matching your criteria.</p>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@if (isSearchingNearby)
+{
+    <div class="fullscreen-loading-overlay">
+        <div class="fullscreen-spinner-container">
+            <div class="fullscreen-spinner"></div>
+            <p class="loading-text">Finding nearby locations...</p>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter]
     public int Id { get; set; }
@@ -715,6 +787,114 @@
                 Navigation.NavigateTo("/");
             }
         }
+    }
+
+    private bool showNearbyModal = false;
+    private bool isSearchingNearby = false;
+    private List<NearbySignal> nearbySignals = new();
+    private string nearbySearchTerm = "";
+    private double nearbyRadiusKm = 20.0;
+
+    private List<NearbySignal> filteredNearbySignals =>
+        string.IsNullOrWhiteSpace(nearbySearchTerm) 
+        ? nearbySignals 
+        : nearbySignals.Where(x => 
+            (x.Signal.HexAddress?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (x.Signal.AreaNumber?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (x.Signal.StreetName1?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (x.Signal.StreetName2?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+        ).ToList();
+
+    private async Task FindNearbySignals()
+    {
+        errorMessage = null;
+        isSearchingNearby = true;
+        StateHasChanged();
+        await Task.Delay(50);
+
+        try
+        {
+            double? latToUse = null;
+            double? lonToUse = null;
+
+            if (signal.Latitude.HasValue && signal.Longitude.HasValue)
+            {
+                latToUse = (double)signal.Latitude.Value;
+                lonToUse = (double)signal.Longitude.Value;
+            }
+            else if (!string.IsNullOrWhiteSpace(signal.StreetName1) && !string.IsNullOrWhiteSpace(signal.StreetName2))
+            {
+                var coords = await SignalService.GetCoordinatesByStreetNamesAsync(signal.StreetName1, signal.StreetName2);
+                if (coords != null)
+                {
+                    latToUse = coords.Value.Latitude;
+                    lonToUse = coords.Value.Longitude;
+                }
+                else
+                {
+                    errorMessage = "Cannot find reference coordinates for the given Street 1 and Street 2 in database.";
+                }
+            }
+            else
+            {
+                errorMessage = "Please enter Latitude/Longitude or Street 1 & 2 to find nearby locations.";
+            }
+
+            if (latToUse.HasValue && lonToUse.HasValue)
+            {
+                nearbySignals = await SignalService.FindNearbySignalsAsync(latToUse.Value, lonToUse.Value, nearbyRadiusKm);
+                // Exclude itself if editing
+                if (Id > 0)
+                {
+                    nearbySignals = nearbySignals.Where(x => x.Signal.Id != Id).ToList();
+                }
+                showNearbyModal = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error searching nearby: {ex.Message}";
+        }
+        finally
+        {
+            isSearchingNearby = false;
+        }
+    }
+
+    private void CloseNearbyModal()
+    {
+        showNearbyModal = false;
+    }
+
+    private void AutoFillFromNearby(NearbySignal ns)
+    {
+        var filledFields = new List<string>();
+
+        signal.AreaNumber = ns.Signal.AreaNumber;
+        filledFields.Add($"Area Number '{ns.Signal.AreaNumber}'");
+
+        if (!string.IsNullOrEmpty(ns.Signal.Boro) && string.IsNullOrEmpty(signal.Boro))
+        {
+            signal.Boro = ns.Signal.Boro;
+            filledFields.Add("Boro");
+        }
+
+        if (string.IsNullOrEmpty(signal.StreetName1) && !string.IsNullOrEmpty(ns.Signal.StreetName1))
+        {
+            signal.StreetName1 = ns.Signal.StreetName1;
+            filledFields.Add("Street 1");
+        }
+
+        if (string.IsNullOrEmpty(signal.StreetName2) && !string.IsNullOrEmpty(ns.Signal.StreetName2))
+        {
+            signal.StreetName2 = ns.Signal.StreetName2;
+            filledFields.Add("Street 2");
+        }
+        
+        string joinedFields = string.Join(", ", filledFields);
+        successMessage = $"Auto-filled {joinedFields} from nearby location {ns.Signal.HexAddress}.";
+        errorMessage = null;
+        showNearbyModal = false;
     }
 
     private async Task GenerateHex()
@@ -1113,5 +1293,104 @@
             flex: 1;
             justify-content: center;
         }
+    }
+
+    .custom-modal-backdrop {
+        position: fixed;
+        top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+    }
+
+    .custom-modal {
+        position: fixed;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1001;
+        width: 95%;
+        max-width: 1400px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .custom-modal-content {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .custom-modal-header {
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .custom-modal-header h3 { margin: 0; font-size: 1.1rem; color: #714B67; }
+
+    .btn-close-modal {
+        background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; padding: 0.2rem 0.5rem; border-radius: 4px;
+    }
+    
+    .btn-close-modal:hover { background: #e0e0e0; }
+
+    .custom-modal-body {
+        padding: 1.5rem;
+        overflow-y: auto;
+        max-height: calc(80vh - 60px);
+    }
+
+    .nearby-table {
+        width: 100%; border-collapse: collapse; text-align: left;
+    }
+    .nearby-table th, .nearby-table td {
+        padding: 0.75rem; border-bottom: 1px solid #e0e0e0; font-size: 0.9rem;
+    }
+    .nearby-table th {
+        font-weight: 600; color: #555; background: #f8f9fa; position: sticky; top: 0;
+    }
+
+    /* Full Screen Loading Overlay reused from Import page */
+    .fullscreen-loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fullscreen-spinner-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .fullscreen-spinner {
+        width: 60px;
+        height: 60px;
+        border: 5px solid rgba(113, 75, 103, 0.2);
+        border-top-color: #714B67;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #714B67;
+        margin: 0;
     }
 </style>

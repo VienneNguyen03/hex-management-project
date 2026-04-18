@@ -139,9 +139,9 @@
                                 <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
                             }
                         </th>
-                        <th @onclick='() => SortBy("PoliceCode")' class="sortable">
-                            Police Code
-                            @if (filterOptions.SortBy == "PoliceCode")
+                        <th @onclick='() => SortBy("AreaNumber")' class="sortable">
+                            Area Number
+                            @if (filterOptions.SortBy == "AreaNumber")
                             {
                                 <span class="sort-icon">@(filterOptions.SortDescending ? "▼" : "▲")</span>
                             }
@@ -205,7 +205,7 @@
                                 <td class="hex-cell">
                                     <span class="hex-badge">@signal.HexAddress</span>
                                 </td>
-                                <td>@signal.PoliceCode</td>
+                                <td>@signal.AreaNumber</td>
                                 <td>
                                     <span class="boro-badge boro-@signal.Boro">
                                         @GetBoroName(signal.Boro)

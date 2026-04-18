@@ -17,4 +17,6 @@ public interface ITrafficSignalService
     Task<List<string>> GetAllHexAddressesAsync();
     Task<int> GetTotalCountAsync();
     Task<int> ImportFromCsvAsync(string filePath);
+    Task<List<NearbySignal>> FindNearbySignalsAsync(double latitude, double longitude, double radiusKm = 20.0);
+    Task<(double Latitude, double Longitude)?> GetCoordinatesByStreetNamesAsync(string street1, string street2);
 }
