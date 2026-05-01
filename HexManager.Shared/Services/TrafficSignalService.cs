@@ -312,22 +312,32 @@ public class TrafficSignalService : ITrafficSignalService
     {
         if (string.IsNullOrWhiteSpace(street1) || string.IsNullOrWhiteSpace(street2)) return null;
 
-        var s1 = street1.ToLower().Trim();
-        var s2 = street2.ToLower().Trim();
+        // Normalize: lowercase + collapse multiple spaces into one
+        var s1 = NormalizeStreetName(street1);
+        var s2 = NormalizeStreetName(street2);
 
-        var match = await _context.TrafficSignals
-            .Where(s => s.Latitude.HasValue && s.Longitude.HasValue &&
-                ((s.StreetName1.ToLower() == s1 && s.StreetName2.ToLower() == s2) ||
-                 (s.StreetName1.ToLower() == s2 && s.StreetName2.ToLower() == s1)))
-            .FirstOrDefaultAsync();
+        // Load candidates that have coordinates and contain both street name fragments
+        // Then normalize in-memory to handle extra whitespace stored in DB
+        var candidates = await _context.TrafficSignals
+            .Where(s => s.Latitude.HasValue && s.Longitude.HasValue)
+            .Select(s => new { s.StreetName1, s.StreetName2, s.Latitude, s.Longitude })
+            .ToListAsync();
+
+        var match = candidates.FirstOrDefault(s =>
+        {
+            var n1 = NormalizeStreetName(s.StreetName1 ?? "");
+            var n2 = NormalizeStreetName(s.StreetName2 ?? "");
+            return (n1 == s1 && n2 == s2) || (n1 == s2 && n2 == s1);
+        });
 
         if (match != null)
-        {
             return ((double)match.Latitude!.Value, (double)match.Longitude!.Value);
-        }
-        
+
         return null;
     }
+
+    private static string NormalizeStreetName(string name)
+        => System.Text.RegularExpressions.Regex.Replace(name.Trim().ToLower(), @"\s+", " ");
 
     public async Task<List<NearbySignal>> FindNearbySignalsAsync(double latitude, double longitude, double radiusKm = 20.0)
     {
@@ -494,15 +504,15 @@ public class TrafficSignalService : ITrafficSignalService
             SequenceNumber = record.SequenceNumber ?? "",
             AreaNumber = record.AreaNumber ?? "",
             
-            // Street information
+            // Street information — normalize whitespace from fixed-width legacy export
             StreetCode1 = record.StreetCode1 ?? "",
-            StreetName1 = record.StreetName1 ?? "",
+            StreetName1 = NormalizeStreetName(record.StreetName1 ?? ""),
             StreetCode2 = record.StreetCode2 ?? "",
-            StreetName2 = record.StreetName2 ?? "",
+            StreetName2 = NormalizeStreetName(record.StreetName2 ?? ""),
             StreetCode3 = record.StreetCode3 ?? "",
-            StreetName3 = record.StreetName3 ?? "",
+            StreetName3 = NormalizeStreetName(record.StreetName3 ?? ""),
             StreetCode4 = record.StreetCode4 ?? "",
-            StreetName4 = record.StreetName4 ?? "",
+            StreetName4 = NormalizeStreetName(record.StreetName4 ?? ""),
             
             // GeoKey and Location identifiers
             GeoKey1 = record.GeoKey1 ?? "",

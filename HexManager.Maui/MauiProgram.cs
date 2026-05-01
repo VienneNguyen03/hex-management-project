@@ -50,6 +50,21 @@ public static class MauiProgram
 		{
 			var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 			context.Database.EnsureCreated();
+
+			// One-time cleanup: normalize multiple spaces in street names from legacy CSV import
+			var conn = context.Database.GetDbConnection();
+			conn.Open();
+			using var cmd = conn.CreateCommand();
+			cmd.CommandText = @"
+				UPDATE TrafficSignals SET
+					StreetName1 = TRIM(REPLACE(REPLACE(REPLACE(StreetName1,'   ',' '),'  ',' '),'  ',' ')),
+					StreetName2 = TRIM(REPLACE(REPLACE(REPLACE(StreetName2,'   ',' '),'  ',' '),'  ',' ')),
+					StreetName3 = TRIM(REPLACE(REPLACE(REPLACE(StreetName3,'   ',' '),'  ',' '),'  ',' ')),
+					StreetName4 = TRIM(REPLACE(REPLACE(REPLACE(StreetName4,'   ',' '),'  ',' '),'  ',' '))
+				WHERE StreetName1 LIKE '%  %' OR StreetName2 LIKE '%  %'
+				   OR StreetName3 LIKE '%  %' OR StreetName4 LIKE '%  %';";
+			cmd.ExecuteNonQuery();
+			conn.Close();
 		}
 
 		return app;

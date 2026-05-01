@@ -162,7 +162,16 @@
 
         <!-- Street Information Section -->
         <div class="form-section">
-            <h2 class="section-title">Street Information</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 2px solid #f0e6ed; padding-bottom: 0.4rem;">
+                <h2 class="section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">Street Information</h2>
+                <button type="button" class="btn-generate" @onclick="FindNearbySignals" disabled="@isSearchingNearby">
+                    @if (isSearchingNearby)
+                    {
+                        <span class="spinner" style="border-top-color: #555; margin-right: 5px; border-width: 2px;"></span>
+                    }
+                    Find nearby locations
+                </button>
+            </div>
             <div class="form-grid two-columns">
                 <div class="form-group">
                     <label class="form-label required">Street Name 1</label>
@@ -702,19 +711,27 @@
                     <div class="filter-group" style="display: flex; gap: 1rem; align-items: flex-end;">
                         <div class="filter-item" style="flex: 1;">
                             <label style="display: block; font-size: 0.8rem; font-weight: 500; color: #555; margin-bottom: 0.3rem;">Search</label>
-                            <input type="text" 
-                                   class="form-input" 
-                                   placeholder="HEX, Area Number, Street..." 
-                                   @bind="nearbySearchTerm"
-                                   @bind:event="oninput" />
+                            <input type="text"
+                                   class="form-input"
+                                   placeholder="HEX, Area Number, Street..."
+                                   value="@nearbySearchTerm"
+                                   @oninput="@(e => { nearbySearchTerm = e.Value?.ToString() ?? ""; nearbyCurrentPage = 1; })" />
                         </div>
                         <div class="filter-item" style="width: 150px;">
                             <label style="display: block; font-size: 0.8rem; font-weight: 500; color: #555; margin-bottom: 0.3rem;">Radius (km)</label>
-                            <select class="form-select" @bind="nearbyRadiusKm" @bind:after="FindNearbySignals">
-                                <option value="5.0">5 km</option>
-                                <option value="10.0">10 km</option>
-                                <option value="20.0">20 km</option>
-                                <option value="50.0">50 km</option>
+                            <select class="form-select" value="@nearbyRadiusKm" @onchange="OnRadiusChanged">
+                                <option value="5">5 km</option>
+                                <option value="10">10 km</option>
+                                <option value="20">20 km</option>
+                                <option value="50">50 km</option>
+                            </select>
+                        </div>
+                        <div class="filter-item" style="width: 120px;">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 500; color: #555; margin-bottom: 0.3rem;">Rows per page</label>
+                            <select class="form-select" @bind="nearbyPageSize" @bind:after="@(() => nearbyCurrentPage = 1)">
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
                             </select>
                         </div>
                     </div>
@@ -725,14 +742,22 @@
                     <table class="nearby-table">
                         <thead>
                             <tr>
-                                <th>HEX</th>
-                                <th>Area Number</th>
-                                <th>Street 1 & 2</th>
-                                <th>Distance (km)</th>
+                                <th style="cursor:pointer; user-select:none;" @onclick="@(() => NearbySort("HEX"))">
+                                    HEX @(nearbySortColumn == "HEX" ? (nearbySortAsc ? "▲" : "▼") : "")
+                                </th>
+                                <th style="cursor:pointer; user-select:none;" @onclick="@(() => NearbySort("Area"))">
+                                    Area Number @(nearbySortColumn == "Area" ? (nearbySortAsc ? "▲" : "▼") : "")
+                                </th>
+                                <th style="cursor:pointer; user-select:none;" @onclick="@(() => NearbySort("Street"))">
+                                    Street 1 & 2 @(nearbySortColumn == "Street" ? (nearbySortAsc ? "▲" : "▼") : "")
+                                </th>
+                                <th style="cursor:pointer; user-select:none;" @onclick="@(() => NearbySort("Distance"))">
+                                    Distance (km) @(nearbySortColumn == "Distance" ? (nearbySortAsc ? "▲" : "▼") : "")
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var ns in filteredNearbySignals)
+                            @foreach (var ns in pagedNearbySignals)
                             {
                                 <tr style="cursor: pointer;" @onclick="() => AutoFillFromNearby(ns)" title="Click to auto-fill Area Number">
                                     <td><a href="javascript:void(0)" class="action-link" style="color: #714B67; font-weight: 500; text-decoration: none;">@ns.Signal.HexAddress</a></td>
@@ -743,6 +768,12 @@
                             }
                         </tbody>
                     </table>
+
+                    <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 1rem; font-size: 0.85rem; color: #555;">
+                        <span>Page @nearbyCurrentPage of @nearbyTotalPages (@filteredNearbySignals.Count total)</span>
+                        <button class="btn-page" disabled="@(nearbyCurrentPage <= 1)" @onclick="@(() => nearbyCurrentPage--)">‹</button>
+                        <button class="btn-page" disabled="@(nearbyCurrentPage >= nearbyTotalPages)" @onclick="@(() => nearbyCurrentPage++)">›</button>
+                    </div>
                 }
                 else
                 {
@@ -795,19 +826,60 @@
     private string nearbySearchTerm = "";
     private double nearbyRadiusKm = 20.0;
 
-    private List<NearbySignal> filteredNearbySignals =>
-        string.IsNullOrWhiteSpace(nearbySearchTerm) 
-        ? nearbySignals 
-        : nearbySignals.Where(x => 
-            (x.Signal.HexAddress?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (x.Signal.AreaNumber?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (x.Signal.StreetName1?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (x.Signal.StreetName2?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
-        ).ToList();
+    // Pagination
+    private int nearbyPageSize = 25;
+    private int nearbyCurrentPage = 1;
+
+    // Sort
+    private string nearbySortColumn = "Distance";
+    private bool nearbySortAsc = true;
+
+    // Cached resolved coordinates for radius reload
+    private double? nearbyResolvedLat;
+    private double? nearbyResolvedLon;
+
+    private List<NearbySignal> filteredNearbySignals
+    {
+        get
+        {
+            var list = nearbySignals.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(nearbySearchTerm))
+                list = list.Where(x =>
+                    (x.Signal.HexAddress?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (x.Signal.AreaNumber?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (x.Signal.StreetName1?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (x.Signal.StreetName2?.Contains(nearbySearchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+            list = nearbySortColumn switch
+            {
+                "HEX"      => nearbySortAsc ? list.OrderBy(x => x.Signal.HexAddress)  : list.OrderByDescending(x => x.Signal.HexAddress),
+                "Area"     => nearbySortAsc ? list.OrderBy(x => x.Signal.AreaNumber)  : list.OrderByDescending(x => x.Signal.AreaNumber),
+                "Street"   => nearbySortAsc ? list.OrderBy(x => x.Signal.StreetName1) : list.OrderByDescending(x => x.Signal.StreetName1),
+                _          => nearbySortAsc ? list.OrderBy(x => x.DistanceKm)         : list.OrderByDescending(x => x.DistanceKm),
+            };
+            return list.ToList();
+        }
+    }
+
+    private List<NearbySignal> pagedNearbySignals =>
+        filteredNearbySignals.Skip((nearbyCurrentPage - 1) * nearbyPageSize).Take(nearbyPageSize).ToList();
+
+    private int nearbyTotalPages =>
+        (int)Math.Ceiling(filteredNearbySignals.Count / (double)nearbyPageSize);
+
+    private void NearbySort(string column)
+    {
+        if (nearbySortColumn == column)
+            nearbySortAsc = !nearbySortAsc;
+        else
+        {
+            nearbySortColumn = column;
+            nearbySortAsc = true;
+        }
+        nearbyCurrentPage = 1;
+    }
 
     private async Task FindNearbySignals()
     {
-        errorMessage = null;
         isSearchingNearby = true;
         StateHasChanged();
         await Task.Delay(50);
@@ -832,28 +904,54 @@
                 }
                 else
                 {
-                    errorMessage = "Cannot find reference coordinates for the given Street 1 and Street 2 in database.";
+                    errorMessage = "Cannot find coordinates for Street 1 & 2 in database.";
                 }
             }
             else
             {
-                errorMessage = "Please enter Latitude/Longitude or Street 1 & 2 to find nearby locations.";
+                errorMessage = "Please enter Latitude/Longitude or Street Name 1 & 2.";
             }
 
             if (latToUse.HasValue && lonToUse.HasValue)
             {
+                nearbyResolvedLat = latToUse;
+                nearbyResolvedLon = lonToUse;
+                nearbyCurrentPage = 1;
                 nearbySignals = await SignalService.FindNearbySignalsAsync(latToUse.Value, lonToUse.Value, nearbyRadiusKm);
-                // Exclude itself if editing
                 if (Id > 0)
-                {
                     nearbySignals = nearbySignals.Where(x => x.Signal.Id != Id).ToList();
-                }
                 showNearbyModal = true;
             }
         }
         catch (Exception ex)
         {
             errorMessage = $"Error searching nearby: {ex.Message}";
+        }
+        finally
+        {
+            isSearchingNearby = false;
+        }
+    }
+
+    private async Task OnRadiusChanged(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out var km))
+            nearbyRadiusKm = km;
+        await ReloadNearbyWithRadius();
+    }
+
+    private async Task ReloadNearbyWithRadius()
+    {
+        if (!nearbyResolvedLat.HasValue || !nearbyResolvedLon.HasValue) return;
+        isSearchingNearby = true;
+        StateHasChanged();
+        await Task.Delay(50);
+        try
+        {
+            nearbyCurrentPage = 1;
+            nearbySignals = await SignalService.FindNearbySignalsAsync(nearbyResolvedLat.Value, nearbyResolvedLon.Value, nearbyRadiusKm);
+            if (Id > 0)
+                nearbySignals = nearbySignals.Where(x => x.Signal.Id != Id).ToList();
         }
         finally
         {
@@ -920,28 +1018,19 @@
     private void OnHexAddressInput(ChangeEventArgs e)
     {
         hexExists = false;
-        errorMessage = null;
-        successMessage = null;
         if (e.Value != null)
-        {
             signal.HexAddress = e.Value.ToString()?.ToUpper() ?? "";
-        }
     }
 
     private async Task HandleSubmit()
     {
-        // Reset messages
         errorMessage = null;
         successMessage = null;
         hexExists = false;
-        
-        // Trim and uppercase HEX address
-        if (!string.IsNullOrWhiteSpace(signal.HexAddress))
-        {
-            signal.HexAddress = signal.HexAddress.ToUpper().Trim();
-        }
 
-        // Basic client-side validation
+        if (!string.IsNullOrWhiteSpace(signal.HexAddress))
+            signal.HexAddress = signal.HexAddress.ToUpper().Trim();
+
         if (string.IsNullOrWhiteSpace(signal.HexAddress))
         {
             errorMessage = "HEX Address is required";
@@ -973,7 +1062,6 @@
             return;
         }
 
-        // Validate coordinates
         if (signal.Latitude.HasValue && (signal.Latitude.Value < -90 || signal.Latitude.Value > 90))
         {
             errorMessage = "Latitude must be between -90 and 90";
@@ -1000,7 +1088,7 @@
                 await SignalService.CreateAsync(signal);
                 successMessage = "Signal created successfully";
             }
-            
+
             await Task.Delay(1500);
             Navigation.NavigateTo("/");
         }
@@ -1355,6 +1443,14 @@
     .nearby-table th {
         font-weight: 600; color: #555; background: #f8f9fa; position: sticky; top: 0;
     }
+    .nearby-table tr:hover td { background: #fdf5fa; }
+
+    .btn-page {
+        background: #f8f9fa; border: 1px solid #d0d0d0; color: #555;
+        padding: 0.25rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 1rem;
+    }
+    .btn-page:hover:not(:disabled) { background: #714B67; color: white; border-color: #714B67; }
+    .btn-page:disabled { opacity: 0.4; cursor: default; }
 
     /* Full Screen Loading Overlay reused from Import page */
     .fullscreen-loading-overlay {
