@@ -162,15 +162,21 @@
 
         <!-- Street Information Section -->
         <div class="form-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 2px solid #f0e6ed; padding-bottom: 0.4rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: @(string.IsNullOrEmpty(nearbyErrorMessage) ? "1.25rem" : "0.4rem"); border-bottom: 2px solid #f0e6ed; padding-bottom: 0.4rem;">
                 <h2 class="section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">Street Information</h2>
-                <button type="button" class="btn-generate" @onclick="FindNearbySignals" disabled="@isSearchingNearby">
-                    @if (isSearchingNearby)
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem;">
+                    <button type="button" class="btn-generate" @onclick="FindNearbySignals" disabled="@isSearchingNearby">
+                        @if (isSearchingNearby)
+                        {
+                            <span class="spinner" style="border-top-color: #555; margin-right: 5px; border-width: 2px;"></span>
+                        }
+                        Find nearby locations
+                    </button>
+                    @if (!string.IsNullOrEmpty(nearbyErrorMessage))
                     {
-                        <span class="spinner" style="border-top-color: #555; margin-right: 5px; border-width: 2px;"></span>
+                        <span style="color:#dc3545; font-size:0.8rem; font-weight:500;">⚠ @nearbyErrorMessage</span>
                     }
-                    Find nearby locations
-                </button>
+                </div>
             </div>
             <div class="form-grid two-columns">
                 <div class="form-group">
@@ -330,15 +336,21 @@
 
         <!-- Geographic Information Section -->
         <div class="form-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 2px solid #f0e6ed; padding-bottom: 0.4rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: @(string.IsNullOrEmpty(nearbyErrorMessage) ? "1.25rem" : "0.4rem"); border-bottom: 2px solid #f0e6ed; padding-bottom: 0.4rem;">
                 <h2 class="section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;">Geographic Information</h2>
-                <button type="button" class="btn-generate" @onclick="FindNearbySignals" disabled="@isSearchingNearby">
-                    @if (isSearchingNearby)
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem;">
+                    <button type="button" class="btn-generate" @onclick="FindNearbySignals" disabled="@isSearchingNearby">
+                        @if (isSearchingNearby)
+                        {
+                            <span class="spinner" style="border-top-color: #555; margin-right: 5px; border-width: 2px;"></span>
+                        }
+                        Find nearby locations
+                    </button>
+                    @if (!string.IsNullOrEmpty(nearbyErrorMessage))
                     {
-                        <span class="spinner" style="border-top-color: #555; margin-right: 5px; border-width: 2px;"></span>
+                        <span style="color:#dc3545; font-size:0.8rem; font-weight:500;">⚠ @nearbyErrorMessage</span>
                     }
-                    Find nearby locations
-                </button>
+                </div>
             </div>
             <div class="form-grid two-columns">
                 <div class="form-group">
@@ -803,6 +815,7 @@
     private bool hexExists = false;
     private string? successMessage;
     private string? errorMessage;
+    private string? nearbyErrorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -884,6 +897,8 @@
         StateHasChanged();
         await Task.Delay(50);
 
+        nearbyErrorMessage = null;
+
         try
         {
             double? latToUse = null;
@@ -891,8 +906,34 @@
 
             if (signal.Latitude.HasValue && signal.Longitude.HasValue)
             {
-                latToUse = (double)signal.Latitude.Value;
-                lonToUse = (double)signal.Longitude.Value;
+                var lat = (double)signal.Latitude.Value;
+                var lon = (double)signal.Longitude.Value;
+
+                // Detect swapped fields: latitude should be ~40.x for NYC, not -73.x
+                if (lat < -90 || lat > 90)
+                {
+                    nearbyErrorMessage = $"Latitude {lat:F4} is invalid (must be -90 to 90). Did you swap Lat/Lon?";
+                    return;
+                }
+                if (lon < -180 || lon > 180)
+                {
+                    nearbyErrorMessage = $"Longitude {lon:F4} is invalid (must be -180 to 180).";
+                    return;
+                }
+                // Warn if lat looks like a longitude value (NYC lat ≈ 40.x, lon ≈ -74.x)
+                if (lat < 0 && lon > 0)
+                {
+                    nearbyErrorMessage = "Latitude is negative and Longitude is positive — looks like Lat/Lon may be swapped.";
+                    return;
+                }
+                if (lat < 0 && lat > -90 && lon < 0)
+                {
+                    nearbyErrorMessage = $"Latitude {lat:F4} looks like a longitude value. NYC latitude should be around 40.7.";
+                    return;
+                }
+
+                latToUse = lat;
+                lonToUse = lon;
             }
             else if (!string.IsNullOrWhiteSpace(signal.StreetName1) && !string.IsNullOrWhiteSpace(signal.StreetName2))
             {
@@ -904,12 +945,12 @@
                 }
                 else
                 {
-                    errorMessage = "Cannot find coordinates for Street 1 & 2 in database.";
+                    nearbyErrorMessage = "Cannot find coordinates for Street 1 & 2 in database.";
                 }
             }
             else
             {
-                errorMessage = "Please enter Latitude/Longitude or Street Name 1 & 2.";
+                nearbyErrorMessage = "Please enter Latitude/Longitude or Street Name 1 & 2.";
             }
 
             if (latToUse.HasValue && lonToUse.HasValue)
@@ -920,12 +961,15 @@
                 nearbySignals = await SignalService.FindNearbySignalsAsync(latToUse.Value, lonToUse.Value, nearbyRadiusKm);
                 if (Id > 0)
                     nearbySignals = nearbySignals.Where(x => x.Signal.Id != Id).ToList();
-                showNearbyModal = true;
+                if (nearbySignals.Count == 0)
+                    nearbyErrorMessage = $"No locations found within {nearbyRadiusKm} km. Check Lat/Lon values are correct.";
+                else
+                    showNearbyModal = true;
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error searching nearby: {ex.Message}";
+            nearbyErrorMessage = $"Error: {ex.Message}";
         }
         finally
         {
